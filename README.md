@@ -9,7 +9,7 @@
 - 失败修复：`idoit --fix`
 - 命令解释：`idoit --explain '<command>'`
 - 结果细化：`idoit --refine '<补充约束>'`
-- 别名保存：`idoit --save <name> <description...>`
+- 宏保存：`idoit --macro <name> <text...>`，在任意需求里用 `@name` 内联展开（定义写在 `macros.toml`）
 - 重新执行上次生成命令：`idoit --last`
 - 交互式 setup：`idoit setup`
 - Shell 初始化脚本：`idoit init bash|zsh|fish`
@@ -73,7 +73,7 @@ idoit --explain 'find . -name "*.log" -mtime +7 -delete'
 - `-e`, `--explain`：解释命令
 - `-r`, `--refine`：细化上次建议
 - `--last`：重新执行上次生成命令
-- `--save`：保存别名
+- `--macro <name>`：保存宏（`@name` 展开）
 
 ## 配置说明
 
@@ -81,9 +81,11 @@ idoit --explain 'find . -name "*.log" -mtime +7 -delete'
 
 `~/.config/idoit/config.toml`
 
-别名文件路径：
+宏定义路径：
 
-`~/.config/idoit/aliases.toml`
+`~/.config/idoit/macros.toml`
+
+（仍会读取旧的 `aliases.toml` 作为兼容，新保存只写入 `macros.toml`。）
 
 常见环境变量：
 

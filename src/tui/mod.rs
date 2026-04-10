@@ -20,6 +20,7 @@ use crate::ai::client::AiClient;
 use crate::ai::prompt;
 use crate::ai::types::AiCommandResponse;
 use crate::config::settings::Settings;
+use crate::macros;
 use crate::session;
 use crate::shell::context::ShellContext;
 use crate::shell::executor;
@@ -337,6 +338,7 @@ fn schedule_ai_jobs(
             });
             return;
         }
+        let line_translate = macros::expand(&line_translate).text;
         let sys = prompt::translate_system_tui(&ctx_t, anyway);
         let model = client_t.model_name(&settings_t);
         let res = client_t
@@ -369,6 +371,7 @@ fn schedule_ai_jobs(
                 });
                 return;
             }
+            let line_diagnostic = macros::expand(&line_diagnostic).text;
             let sys = prompt::tui_learn_diagnostic_system(&ctx_d);
             let model = client_d.model_name(&settings_d);
             let text = client_d

@@ -15,6 +15,7 @@ use clap::Parser;
         idoit --refine \"only in home directory\"\n  \
         idoit init bash\n  \
         idoit setup\n  \
+        idoit --macro bk \"backup home to tarball\"  (then: idoit @bk)\n  \
         idoit            (full-screen TUI)\n  \
         idoit -l         (learn TUI with live preview)"
 )]
@@ -67,9 +68,9 @@ pub struct Cli {
     #[arg(long)]
     pub init: Option<String>,
 
-    /// Save current prompt as a named alias: --save <name>
-    #[arg(long)]
-    pub save: Option<String>,
+    /// Save or update a macro @NAME (body from remaining args); stored in macros.toml
+    #[arg(long = "macro", value_name = "NAME")]
+    pub macro_name: Option<String>,
 }
 
 impl Cli {

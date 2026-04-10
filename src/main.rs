@@ -1,5 +1,5 @@
 mod ai;
-mod aliases;
+mod macros;
 mod cache;
 mod cli;
 mod commands;
@@ -71,19 +71,19 @@ async fn run() -> Result<()> {
         return run_last(&settings).await;
     }
 
-    // idoit --save <name> <prompt...>
-    if let Some(ref alias_name) = cli.save {
+    // idoit --macro <name> <text...>
+    if let Some(ref name) = cli.macro_name {
         if !cli.has_prompt() {
             ui::output::print_error(
-                "--save requires a prompt. Usage: idoit --save <name> <description...>",
+                "--macro requires macro body. Usage: idoit --macro <name> <text...>  (then use @name in prompts)",
             );
             std::process::exit(1);
         }
-        aliases::save(alias_name, &cli.prompt())?;
+        macros::save(name, &cli.prompt())?;
         println!(
-            "  {} saved alias {} → \"{}\"",
+            "  {} saved macro @{} → \"{}\"",
             style("✓").green().bold(),
-            style(alias_name).cyan().bold(),
+            style(name).cyan().bold(),
             cli.prompt()
         );
         return Ok(());
@@ -95,7 +95,7 @@ async fn run() -> Result<()> {
         && !cli.refine
         && !cli.explain
         && !cli.last
-        && cli.save.is_none();
+        && cli.macro_name.is_none();
 
     if use_tui {
         let settings = Arc::new(settings);
@@ -135,8 +135,9 @@ async fn run() -> Result<()> {
 
     // idoit --refine <refinement>
     if cli.refine {
+        let refinement = macros::expand(&cli.prompt()).text;
         return commands::refine::run(
-            &cli.prompt(),
+            &refinement,
             &settings,
             &client,
             &ctx,
@@ -151,22 +152,19 @@ async fn run() -> Result<()> {
         return commands::explain::run(&cli.prompt(), &settings, &client, &ctx).await;
     }
 
-    // Check for alias match
     let prompt = cli.prompt();
-    let resolved_prompt = if let Some(description) = aliases::resolve(&prompt) {
+    let expanded = macros::expand(&prompt);
+    if !expanded.used.is_empty() {
         println!(
             "  {} {}",
-            style("alias:").dim(),
-            style(&description).dim().italic()
+            style("macro:").dim(),
+            style(&expanded.text).dim().italic()
         );
-        description
-    } else {
-        prompt
-    };
+    }
 
     // idoit <prompt...>
     commands::translate::run(
-        &resolved_prompt,
+        &expanded.text,
         &settings,
         &client,
         &ctx,
