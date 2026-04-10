@@ -16,8 +16,8 @@ use clap::Parser;
         idoit init bash\n  \
         idoit setup\n  \
         idoit --macro bk \"backup home to tarball\"  (then: idoit @bk)\n  \
-        idoit            (full-screen TUI)\n  \
-        idoit -l         (learn TUI with live preview)"
+        idoit --tui      (full-screen TUI)\n  \
+        idoit --tui -l   (learn TUI with live preview)"
 )]
 pub struct Cli {
     /// Natural language description of what you want to do
@@ -47,6 +47,10 @@ pub struct Cli {
     /// Override the AI provider (openai, anthropic, gemini, ollama)
     #[arg(short, long)]
     pub provider: Option<String>,
+
+    /// Full-screen interactive TUI (no prompt on the command line)
+    #[arg(long)]
+    pub tui: bool,
 
     /// Show or edit configuration
     #[arg(long)]

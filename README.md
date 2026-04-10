@@ -5,7 +5,8 @@
 
 ## 功能概览
 
-- 自然语言转命令：`idoit <你的需求>`
+- 自然语言转命令：`idoit <你的需求>`（默认 CLI）
+- 全屏 TUI：`idoit --tui`（`--learn` 同上，用于带预览的学习模式）
 - 失败修复：`idoit --fix`
 - 命令解释：`idoit --explain '<command>'`
 - 结果细化：`idoit --refine '<补充约束>'`
@@ -74,6 +75,7 @@ idoit --explain 'find . -name "*.log" -mtime +7 -delete'
 - `-r`, `--refine`：细化上次建议
 - `--last`：重新执行上次生成命令
 - `--macro <name>`：保存宏（`@name` 展开）
+- `--tui`：全屏交互界面（不要与正文 prompt 同时使用）
 
 ## 配置说明
 

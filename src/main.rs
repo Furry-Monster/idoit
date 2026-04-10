@@ -88,13 +88,21 @@ async fn run() -> Result<()> {
         return Ok(());
     }
 
-    // Full-screen TUI: plain `idoit` or `idoit -l` (no positional args)
-    let use_tui = !cli.has_prompt()
+    // Full-screen TUI: `idoit --tui` (optional `-l` / `--learn` inside tui::run)
+    let use_tui = cli.tui
         && !cli.fix
         && !cli.refine
         && !cli.explain
         && !cli.last
         && cli.macro_name.is_none();
+
+    if cli.tui && cli.has_prompt() {
+        ui::output::print_error(
+            "--tui runs the full-screen UI and cannot be combined with a prompt. \
+             Use: idoit --tui   or   idoit --tui --learn",
+        );
+        std::process::exit(1);
+    }
 
     if use_tui {
         let settings = Arc::new(settings);
