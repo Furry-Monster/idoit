@@ -1,4 +1,4 @@
-//! Dispatches parsed [`crate::cli::Cli`] to the appropriate command handler.
+//! Dispatches parsed [`crate::parser::Args`] to the appropriate command handler.
 
 use std::sync::Arc;
 
@@ -6,14 +6,14 @@ use anyhow::Result;
 use console::style;
 
 use crate::ai::client::AiClient;
-use crate::cli::{Cli, Commands, GlobalOpts};
+use crate::cli;
 use crate::config;
 use crate::config::settings::Settings;
 use crate::macros;
+use crate::parser::{Args, Commands, GlobalOpts};
 use crate::session;
 use crate::shell::context::ShellContext;
 use crate::tui;
-use crate::ui;
 
 use super::{explain, fix, refine, setup, translate};
 
@@ -28,19 +28,19 @@ pub async fn run_last(settings: &Settings) -> Result<()> {
 
     let ctx = ShellContext::detect(&settings.behavior.shell);
 
-    if !ui::confirm::confirm_execution(settings.behavior.auto_confirm)? {
+    if !cli::confirm::confirm_execution(settings.behavior.auto_confirm)? {
         return Ok(());
     }
 
     let result = crate::shell::executor::execute(&ctx, &cmd)?;
-    ui::output::print_execution_result(result.exit_code);
+    cli::output::print_execution_result(result.exit_code);
     Ok(())
 }
 
-pub async fn run(cli: Cli) -> Result<()> {
-    let g = cli.global.clone();
+pub async fn run(args: Args) -> Result<()> {
+    let g = args.global.clone();
 
-    match &cli.command {
+    match &args.command {
         Some(Commands::Init { shell }) => {
             print!("{}", crate::shell::init::generate(shell));
             return Ok(());
@@ -67,10 +67,10 @@ pub async fn run(cli: Cli) -> Result<()> {
         console::set_colors_enabled_stderr(false);
     }
 
-    match cli.command {
+    match args.command {
         None => {
             use clap::CommandFactory;
-            Cli::command().print_help()?;
+            Args::command().print_help()?;
             println!();
             Ok(())
         }
@@ -78,9 +78,9 @@ pub async fn run(cli: Cli) -> Result<()> {
         Some(Commands::Config) => config::show_config(&settings),
         Some(Commands::Last) => run_last(&settings).await,
         Some(Commands::Macro { name, body }) => {
-            let text = Cli::join_prompt(&body);
+            let text = Args::join_prompt(&body);
             if text.is_empty() {
-                ui::output::print_error(
+                cli::output::print_error(
                     "macro needs a body. Usage: idoit macro NAME words describing the task…",
                 );
                 std::process::exit(1);
@@ -108,9 +108,9 @@ pub async fn run(cli: Cli) -> Result<()> {
             fix::run(&settings, &client, &ctx, learn, g.dry_run, g.yes).await
         }
         Some(Commands::Explain { command }) => {
-            let cmd_line = Cli::join_prompt(&command);
+            let cmd_line = Args::join_prompt(&command);
             if cmd_line.is_empty() {
-                ui::output::print_error(
+                cli::output::print_error(
                     "explain needs a command. Example: idoit explain 'find . -name \"*.rs\"'",
                 );
                 eprintln!();
@@ -122,9 +122,9 @@ pub async fn run(cli: Cli) -> Result<()> {
             explain::run(&cmd_line, &settings, &client, &ctx).await
         }
         Some(Commands::Refine { text }) => {
-            let refinement = Cli::join_prompt(&text);
+            let refinement = Args::join_prompt(&text);
             if refinement.is_empty() {
-                ui::output::print_error(
+                cli::output::print_error(
                     "refine needs text. Example: idoit refine \"only under src\"",
                 );
                 std::process::exit(1);
@@ -135,9 +135,9 @@ pub async fn run(cli: Cli) -> Result<()> {
             refine::run(&refinement, &settings, &client, &ctx, g.dry_run, g.yes).await
         }
         Some(Commands::Run { prompt }) => {
-            let prompt = Cli::join_prompt(&prompt);
+            let prompt = Args::join_prompt(&prompt);
             if prompt.is_empty() {
-                ui::output::print_error(
+                cli::output::print_error(
                     "run needs a prompt. Example: idoit run find all TODO in src",
                 );
                 std::process::exit(1);
@@ -145,10 +145,10 @@ pub async fn run(cli: Cli) -> Result<()> {
             run_translate(&g, &settings, &prompt).await
         }
         Some(Commands::Prompt(parts)) => {
-            let prompt = Cli::join_prompt_os(&parts);
+            let prompt = Args::join_prompt_os(&parts);
             if prompt.is_empty() {
                 use clap::CommandFactory;
-                Cli::command().print_help()?;
+                Args::command().print_help()?;
                 println!();
                 return Ok(());
             }

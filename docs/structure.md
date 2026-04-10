@@ -5,7 +5,7 @@ flowchart TB
     end
 
     subgraph L2["L2 接口层"]
-        cli["cli.rs\nClap：GlobalOpts + Commands"]
+        parser["parser.rs\nClap：GlobalOpts + Commands"]
     end
 
     subgraph L3["L3 应用编排"]
@@ -38,8 +38,8 @@ flowchart TB
         subgraph C_MACRO["⑤ 用户宏"]
             mac["macros.rs\n@name 展开 / 保存"]
         end
-        subgraph C_UI["⑥ 终端交互（非 TUI）"]
-            uip["ui/*\noutput / confirm / spinner / clipboard"]
+        subgraph C_CLI["⑥ 终端交互（非 TUI）"]
+            climod["cli/*\noutput / confirm / spinner / clipboard"]
         end
     end
 
@@ -55,8 +55,8 @@ flowchart TB
         env["环境变量：NO_COLOR、__IDOIT_*"]
     end
 
-    main --> cli
-    cli --> dispatch
+    main --> parser
+    parser --> dispatch
     dispatch --> handlers
     dispatch --> tuiroot
     handlers --> C_AI
@@ -64,7 +64,7 @@ flowchart TB
     handlers --> C_SH
     handlers --> C_CFG
     handlers --> C_MACRO
-    handlers --> C_UI
+    handlers --> C_CLI
     tuiroot --> coord
     coord --> C_AI
     coord --> C_CTX

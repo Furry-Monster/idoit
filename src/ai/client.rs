@@ -2,8 +2,8 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 
+use crate::cli::spinner::Spinner;
 use crate::config::settings::{AiProviderId, Settings};
-use crate::ui::spinner::Spinner;
 
 use super::provider::AiProvider;
 use super::providers::anthropic::AnthropicProvider;

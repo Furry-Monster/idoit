@@ -2,11 +2,11 @@ use anyhow::{bail, Result};
 
 use crate::ai::client::AiClient;
 use crate::ai::prompt;
+use crate::cli::{confirm, output, spinner};
 use crate::config::settings::Settings;
 use crate::session;
 use crate::shell::context::ShellContext;
 use crate::shell::executor;
-use crate::ui::{confirm, output, spinner};
 
 pub async fn run(
     user_input: &str,

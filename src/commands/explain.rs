@@ -2,9 +2,9 @@ use anyhow::Result;
 
 use crate::ai::client::AiClient;
 use crate::ai::prompt;
+use crate::cli::{output, spinner};
 use crate::config::settings::Settings;
 use crate::shell::context::ShellContext;
-use crate::ui::{output, spinner};
 
 pub async fn run(
     command_to_explain: &str,

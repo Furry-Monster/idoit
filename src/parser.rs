@@ -23,7 +23,7 @@ use crate::config::settings::AiProviderId;
         idoit …                      default: NL → command\n\n\
         Globals (any position with subcommands): --dry-run, --provider, -y, --learn, …"
 )]
-pub struct Cli {
+pub struct Args {
     #[command(flatten)]
     pub global: GlobalOpts,
 
@@ -98,7 +98,7 @@ pub enum Commands {
     Prompt(Vec<OsString>),
 }
 
-impl Cli {
+impl Args {
     pub fn join_prompt(parts: &[String]) -> String {
         parts.join(" ")
     }
