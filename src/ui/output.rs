@@ -87,8 +87,3 @@ pub fn print_fix_context(last_command: &str) {
         style(last_command).yellow()
     );
 }
-
-#[allow(dead_code)]
-pub fn print_cached_notice() {
-    println!("  {}", style("(cached response)").dim());
-}

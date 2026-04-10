@@ -1,6 +1,5 @@
 mod ai;
 mod macros;
-mod cache;
 mod cli;
 mod commands;
 mod config;

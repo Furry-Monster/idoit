@@ -85,8 +85,6 @@ idoit --explain 'find . -name "*.log" -mtime +7 -delete'
 
 `~/.config/idoit/macros.toml`
 
-（仍会读取旧的 `aliases.toml` 作为兼容，新保存只写入 `macros.toml`。）
-
 常见环境变量：
 
 - `OPENAI_API_KEY`

@@ -8,8 +8,6 @@ pub struct Settings {
     pub behavior: BehaviorSettings,
     #[serde(default)]
     pub ui: UiSettings,
-    #[serde(default)]
-    pub cache: CacheSettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,9 +139,6 @@ fn default_ollama_host() -> String {
 fn default_true() -> bool {
     true
 }
-fn default_cache_ttl() -> u64 {
-    3600
-}
 
 // --- Default impls ---
 
@@ -153,7 +148,6 @@ impl Default for Settings {
             ai: AiSettings::default(),
             behavior: BehaviorSettings::default(),
             ui: UiSettings::default(),
-            cache: CacheSettings::default(),
         }
     }
 }
@@ -254,23 +248,6 @@ impl Default for UiSettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CacheSettings {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default = "default_cache_ttl")]
-    pub ttl_secs: u64,
-}
-
-impl Default for CacheSettings {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            ttl_secs: default_cache_ttl(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -361,18 +338,6 @@ model = "codellama"
         assert_eq!(s.ai.provider, "ollama");
         assert_eq!(s.ai.ollama.host, "http://myhost:11434");
         assert_eq!(s.ai.ollama.model, "codellama");
-    }
-
-    #[test]
-    fn test_parse_cache_config() {
-        let toml_str = r#"
-[cache]
-enabled = true
-ttl_secs = 7200
-"#;
-        let s: Settings = toml::from_str(toml_str).unwrap();
-        assert!(s.cache.enabled);
-        assert_eq!(s.cache.ttl_secs, 7200);
     }
 
     #[test]

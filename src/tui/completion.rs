@@ -95,8 +95,8 @@ const CARGO_SUBS: &[&str] = &[
 ];
 
 fn path_executables() -> &'static BTreeSet<String> {
-    static CACHE: OnceLock<BTreeSet<String>> = OnceLock::new();
-    CACHE.get_or_init(|| {
+    static PATH_EXECUTABLES: OnceLock<BTreeSet<String>> = OnceLock::new();
+    PATH_EXECUTABLES.get_or_init(|| {
         let mut out = BTreeSet::new();
         let path_var = env::var("PATH").unwrap_or_default();
         for dir in env::split_paths(&path_var) {

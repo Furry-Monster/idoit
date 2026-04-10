@@ -7,11 +7,6 @@ fn macros_path() -> PathBuf {
     crate::config::config_dir().join("macros.toml")
 }
 
-/// Previous alias storage; merged into [`load_merged`] so existing installs keep working.
-fn legacy_aliases_path() -> PathBuf {
-    crate::config::config_dir().join("aliases.toml")
-}
-
 fn load_file(path: &PathBuf) -> BTreeMap<String, String> {
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
@@ -20,13 +15,8 @@ fn load_file(path: &PathBuf) -> BTreeMap<String, String> {
     toml::from_str(&content).unwrap_or_default()
 }
 
-/// Definitions from `macros.toml`, then any keys only in legacy `aliases.toml`.
-pub fn load_merged() -> BTreeMap<String, String> {
-    let mut m = load_file(&macros_path());
-    for (k, v) in load_file(&legacy_aliases_path()) {
-        m.entry(k).or_insert(v);
-    }
-    m
+fn load_definitions() -> BTreeMap<String, String> {
+    load_file(&macros_path())
 }
 
 pub fn save(name: &str, body: &str) -> Result<()> {
@@ -142,7 +132,7 @@ fn expand_one_round(s: &str, map: &BTreeMap<String, String>) -> (String, bool, V
 const MAX_EXPAND_ROUNDS: u32 = 32;
 
 pub fn expand(input: &str) -> ExpandResult {
-    let map = load_merged();
+    let map = load_definitions();
     let mut text = input.to_string();
     let mut used: Vec<String> = Vec::new();
 
