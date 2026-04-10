@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
 use std::ffi::OsString;
 
+use crate::config::settings::AiProviderId;
+
 #[derive(Parser, Debug)]
 #[command(
     name = "idoit",
@@ -49,8 +51,8 @@ pub struct GlobalOpts {
     pub yes: bool,
 
     /// Override AI provider (openai, anthropic, gemini, ollama)
-    #[arg(short, long, global = true)]
-    pub provider: Option<String>,
+    #[arg(short, long, global = true, value_enum)]
+    pub provider: Option<AiProviderId>,
 }
 
 #[derive(Subcommand, Debug)]

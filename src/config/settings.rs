@@ -1,5 +1,44 @@
 use serde::{Deserialize, Serialize};
 
+/// Which AI backend to use (`[ai] provider` in config and `-p` / `--provider` on the CLI).
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Default,
+    clap::ValueEnum,
+)]
+#[serde(rename_all = "lowercase")]
+#[clap(rename_all = "lower")]
+pub enum AiProviderId {
+    #[default]
+    OpenAi,
+    Anthropic,
+    Gemini,
+    Ollama,
+}
+
+impl AiProviderId {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::OpenAi => "openai",
+            Self::Anthropic => "anthropic",
+            Self::Gemini => "gemini",
+            Self::Ollama => "ollama",
+        }
+    }
+}
+
+impl std::fmt::Display for AiProviderId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
@@ -12,8 +51,8 @@ pub struct Settings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiSettings {
-    #[serde(default = "default_provider")]
-    pub provider: String,
+    #[serde(default)]
+    pub provider: AiProviderId,
     #[serde(default = "default_timeout")]
     pub timeout_secs: u64,
     #[serde(default = "default_temperature")]
@@ -35,20 +74,20 @@ pub struct AiSettings {
 /// Shared interface — every provider settings struct has at least model + api_key_env.
 impl AiSettings {
     pub fn active_model(&self) -> &str {
-        match self.provider.as_str() {
-            "anthropic" => &self.anthropic.model,
-            "gemini" => &self.gemini.model,
-            "ollama" => &self.ollama.model,
-            _ => &self.openai.model,
+        match self.provider {
+            AiProviderId::Anthropic => &self.anthropic.model,
+            AiProviderId::Gemini => &self.gemini.model,
+            AiProviderId::Ollama => &self.ollama.model,
+            AiProviderId::OpenAi => &self.openai.model,
         }
     }
 
     #[allow(dead_code)]
     pub fn active_api_key_env(&self) -> &str {
-        match self.provider.as_str() {
-            "anthropic" => &self.anthropic.api_key_env,
-            "gemini" => &self.gemini.api_key_env,
-            _ => &self.openai.api_key_env,
+        match self.provider {
+            AiProviderId::Anthropic => &self.anthropic.api_key_env,
+            AiProviderId::Gemini => &self.gemini.api_key_env,
+            AiProviderId::OpenAi | AiProviderId::Ollama => &self.openai.api_key_env,
         }
     }
 }
@@ -95,9 +134,6 @@ pub struct OllamaSettings {
 
 // --- defaults ---
 
-fn default_provider() -> String {
-    "openai".into()
-}
 fn default_timeout() -> u64 {
     30
 }
@@ -155,7 +191,7 @@ impl Default for Settings {
 impl Default for AiSettings {
     fn default() -> Self {
         Self {
-            provider: default_provider(),
+            provider: AiProviderId::default(),
             timeout_secs: default_timeout(),
             temperature: default_temperature(),
             max_tokens: default_max_tokens(),
@@ -255,7 +291,7 @@ mod tests {
     #[test]
     fn test_default_settings() {
         let s = Settings::default();
-        assert_eq!(s.ai.provider, "openai");
+        assert_eq!(s.ai.provider, AiProviderId::OpenAi);
         assert_eq!(s.ai.openai.model, "gpt-4o-mini");
         assert_eq!(s.ai.anthropic.model, "claude-sonnet-4-20250514");
         assert_eq!(s.ai.gemini.model, "gemini-2.5-flash");
@@ -270,13 +306,13 @@ mod tests {
         let mut s = Settings::default();
         assert_eq!(s.ai.active_model(), "gpt-4o-mini");
 
-        s.ai.provider = "gemini".into();
+        s.ai.provider = AiProviderId::Gemini;
         assert_eq!(s.ai.active_model(), "gemini-2.5-flash");
 
-        s.ai.provider = "anthropic".into();
+        s.ai.provider = AiProviderId::Anthropic;
         assert_eq!(s.ai.active_model(), "claude-sonnet-4-20250514");
 
-        s.ai.provider = "ollama".into();
+        s.ai.provider = AiProviderId::Ollama;
         assert_eq!(s.ai.active_model(), "llama3");
     }
 
@@ -285,10 +321,10 @@ mod tests {
         let mut s = Settings::default();
         assert_eq!(s.ai.active_api_key_env(), "OPENAI_API_KEY");
 
-        s.ai.provider = "gemini".into();
+        s.ai.provider = AiProviderId::Gemini;
         assert_eq!(s.ai.active_api_key_env(), "GEMINI_API_KEY");
 
-        s.ai.provider = "anthropic".into();
+        s.ai.provider = AiProviderId::Anthropic;
         assert_eq!(s.ai.active_api_key_env(), "ANTHROPIC_API_KEY");
     }
 
@@ -302,7 +338,7 @@ provider = "gemini"
 model = "gemini-2.5-pro"
 "#;
         let s: Settings = toml::from_str(toml_str).unwrap();
-        assert_eq!(s.ai.provider, "gemini");
+        assert_eq!(s.ai.provider, AiProviderId::Gemini);
         assert_eq!(s.ai.gemini.model, "gemini-2.5-pro");
         assert_eq!(s.ai.active_model(), "gemini-2.5-pro");
     }
@@ -335,7 +371,7 @@ host = "http://myhost:11434"
 model = "codellama"
 "#;
         let s: Settings = toml::from_str(toml_str).unwrap();
-        assert_eq!(s.ai.provider, "ollama");
+        assert_eq!(s.ai.provider, AiProviderId::Ollama);
         assert_eq!(s.ai.ollama.host, "http://myhost:11434");
         assert_eq!(s.ai.ollama.model, "codellama");
     }
@@ -353,7 +389,20 @@ model = "codellama"
     #[test]
     fn test_empty_toml() {
         let s: Settings = toml::from_str("").unwrap();
-        assert_eq!(s.ai.provider, "openai");
+        assert_eq!(s.ai.provider, AiProviderId::OpenAi);
         assert_eq!(s.ai.active_model(), "gpt-4o-mini");
+    }
+
+    #[test]
+    fn test_invalid_provider_rejected() {
+        let toml_str = r#"
+[ai]
+provider = "not-a-provider"
+"#;
+        let err = toml::from_str::<Settings>(toml_str).unwrap_err();
+        assert!(
+            err.to_string().contains("not-a-provider") || err.to_string().contains("unknown"),
+            "unexpected error: {err}"
+        );
     }
 }

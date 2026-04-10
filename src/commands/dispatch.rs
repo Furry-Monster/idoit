@@ -97,12 +97,12 @@ pub async fn run(cli: Cli) -> Result<()> {
         Some(Commands::Tui { learn }) => {
             let learn_mode = g.learn || learn;
             let settings = Arc::new(settings);
-            let client = Arc::new(AiClient::from_settings(&settings, g.provider.as_deref())?);
+            let client = Arc::new(AiClient::from_settings(&settings, g.provider)?);
             let ctx = Arc::new(ShellContext::detect(&settings.behavior.shell));
             tui::run(settings, client, ctx, learn_mode, g.anyway, g.dry_run).await
         }
         Some(Commands::Fix) => {
-            let client = AiClient::from_settings(&settings, g.provider.as_deref())?;
+            let client = AiClient::from_settings(&settings, g.provider)?;
             let ctx = ShellContext::detect(&settings.behavior.shell);
             let learn = g.learn || settings.behavior.learn_by_default;
             fix::run(&settings, &client, &ctx, learn, g.dry_run, g.yes).await
@@ -117,7 +117,7 @@ pub async fn run(cli: Cli) -> Result<()> {
                 eprintln!("  Usage: idoit explain <shell command…>");
                 std::process::exit(1);
             }
-            let client = AiClient::from_settings(&settings, g.provider.as_deref())?;
+            let client = AiClient::from_settings(&settings, g.provider)?;
             let ctx = ShellContext::detect(&settings.behavior.shell);
             explain::run(&cmd_line, &settings, &client, &ctx).await
         }
@@ -130,7 +130,7 @@ pub async fn run(cli: Cli) -> Result<()> {
                 std::process::exit(1);
             }
             let refinement = macros::expand(&refinement).text;
-            let client = AiClient::from_settings(&settings, g.provider.as_deref())?;
+            let client = AiClient::from_settings(&settings, g.provider)?;
             let ctx = ShellContext::detect(&settings.behavior.shell);
             refine::run(&refinement, &settings, &client, &ctx, g.dry_run, g.yes).await
         }
@@ -158,7 +158,7 @@ pub async fn run(cli: Cli) -> Result<()> {
 }
 
 async fn run_translate(g: &GlobalOpts, settings: &Settings, prompt: &str) -> Result<()> {
-    let client = AiClient::from_settings(settings, g.provider.as_deref())?;
+    let client = AiClient::from_settings(settings, g.provider)?;
     let ctx = ShellContext::detect(&settings.behavior.shell);
     let learn = g.learn || settings.behavior.learn_by_default;
     let expanded = macros::expand(prompt);

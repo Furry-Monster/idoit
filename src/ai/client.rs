@@ -1,8 +1,8 @@
 use std::time::{Duration, Instant};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 
-use crate::config::settings::Settings;
+use crate::config::settings::{AiProviderId, Settings};
 use crate::ui::spinner::Spinner;
 
 use super::provider::AiProvider;
@@ -31,13 +31,16 @@ pub struct AskResult {
 }
 
 impl AiClient {
-    pub fn from_settings(settings: &Settings, provider_override: Option<&str>) -> Result<Self> {
-        let provider_name = provider_override.unwrap_or(&settings.ai.provider);
+    pub fn from_settings(
+        settings: &Settings,
+        provider_override: Option<AiProviderId>,
+    ) -> Result<Self> {
+        let id = provider_override.unwrap_or(settings.ai.provider);
         let timeout = Duration::from_secs(settings.ai.timeout_secs);
         let max_retries = settings.ai.max_retries;
 
-        let inner = match provider_name {
-            "openai" => {
+        let inner = match id {
+            AiProviderId::OpenAi => {
                 let cfg = &settings.ai.openai;
                 let api_key = resolve_api_key(&cfg.api_key, &cfg.api_key_env)?;
                 let base_url = if cfg.base_url.is_empty() {
@@ -47,25 +50,22 @@ impl AiClient {
                 };
                 AiClientInner::OpenAi(OpenAiProvider::new(api_key, base_url, timeout))
             }
-            "anthropic" => {
+            AiProviderId::Anthropic => {
                 let api_key = resolve_api_key(
                     &settings.ai.anthropic.api_key,
                     &settings.ai.anthropic.api_key_env,
                 )?;
                 AiClientInner::Anthropic(AnthropicProvider::new(api_key, timeout))
             }
-            "gemini" => {
+            AiProviderId::Gemini => {
                 let api_key =
                     resolve_api_key(&settings.ai.gemini.api_key, &settings.ai.gemini.api_key_env)?;
                 AiClientInner::Gemini(GeminiProvider::new(api_key, timeout))
             }
-            "ollama" => AiClientInner::Ollama(OllamaProvider::new(
+            AiProviderId::Ollama => AiClientInner::Ollama(OllamaProvider::new(
                 settings.ai.ollama.host.clone(),
                 timeout,
             )),
-            other => bail!(
-                "unknown AI provider: {other} (expected openai, anthropic, gemini, or ollama)"
-            ),
         };
 
         Ok(Self { inner, max_retries })

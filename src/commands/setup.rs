@@ -3,7 +3,7 @@ use console::style;
 use dialoguer::{Confirm, Input, Select};
 
 use crate::config;
-use crate::config::settings::Settings;
+use crate::config::settings::{AiProviderId, Settings};
 use crate::shell::history;
 
 pub fn run() -> Result<()> {
@@ -15,21 +15,27 @@ pub fn run() -> Result<()> {
     );
     println!();
 
-    let providers = &["openai", "anthropic", "gemini", "ollama"];
+    let provider_labels = &["openai", "anthropic", "gemini", "ollama"];
+    let provider_ids = [
+        AiProviderId::OpenAi,
+        AiProviderId::Anthropic,
+        AiProviderId::Gemini,
+        AiProviderId::Ollama,
+    ];
     let detected_shell = detect_shell();
     let selection = Select::new()
         .with_prompt("  Select AI provider")
-        .items(providers)
+        .items(provider_labels)
         .default(0)
         .interact()?;
 
-    let provider = providers[selection];
+    let provider = provider_ids[selection];
 
     let mut settings = config::load().unwrap_or_else(|_| Settings::default());
-    settings.ai.provider = provider.to_string();
+    settings.ai.provider = provider;
 
     match provider {
-        "openai" => {
+        AiProviderId::OpenAi => {
             let api_key_env = settings.ai.openai.api_key_env.clone();
             let model = settings.ai.openai.model.clone();
             let api_key: String = Input::new()
@@ -48,7 +54,7 @@ pub fn run() -> Result<()> {
                 style(&model).dim()
             );
         }
-        "anthropic" => {
+        AiProviderId::Anthropic => {
             let api_key_env = settings.ai.anthropic.api_key_env.clone();
             let model = settings.ai.anthropic.model.clone();
             let api_key: String = Input::new()
@@ -67,7 +73,7 @@ pub fn run() -> Result<()> {
                 style(&model).dim()
             );
         }
-        "gemini" => {
+        AiProviderId::Gemini => {
             let api_key_env = settings.ai.gemini.api_key_env.clone();
             let model = settings.ai.gemini.model.clone();
             let api_key: String = Input::new()
@@ -86,7 +92,7 @@ pub fn run() -> Result<()> {
                 style(&model).dim()
             );
         }
-        "ollama" => {
+        AiProviderId::Ollama => {
             let default_host = settings.ai.ollama.host.clone();
             let model = settings.ai.ollama.model.clone();
             let host: String = Input::new()
@@ -105,7 +111,6 @@ pub fn run() -> Result<()> {
                 style(&model).dim()
             );
         }
-        _ => {}
     }
 
     let shells = &["bash", "zsh", "fish", "sh"];
