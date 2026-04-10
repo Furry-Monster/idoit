@@ -1,4 +1,5 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
+use std::ffi::OsString;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -6,92 +7,107 @@ use clap::Parser;
     version,
     about = "AI-powered command line simplifier — just do it!",
     long_about = "Translate natural language into shell commands, fix mistakes, and learn as you go.\n\n\
-        Examples:\n  \
-        idoit find files containing \"TODO\" in src/\n  \
-        idoit compress this folder as tar.gz\n  \
-        idoit --fix\n  \
-        idoit --learn git rebase\n  \
-        idoit --explain 'find . -name \"*.log\" -mtime +7 -delete'\n  \
-        idoit --refine \"only in home directory\"\n  \
-        idoit init bash\n  \
-        idoit setup\n  \
-        idoit --macro bk \"backup home to tarball\"  (then: idoit @bk)\n  \
-        idoit --tui      (full-screen TUI)\n  \
-        idoit --tui -l   (learn TUI with live preview)"
+        Routing (subcommands):\n  \
+        idoit init bash|zsh|fish     shell integration script\n  \
+        idoit setup                  first-time / reconfigure\n  \
+        idoit config                 show settings\n  \
+        idoit last                   re-run last generated command\n  \
+        idoit macro NAME …           save @NAME macro\n  \
+        idoit tui [-l]               full-screen TUI (--learn)\n  \
+        idoit fix                    repair last failed shell command\n  \
+        idoit explain 'cmd …'        explain a shell command\n  \
+        idoit refine \"…\"             refine previous suggestion\n  \
+        idoit run …                  explicit NL → command\n  \
+        idoit …                      default: NL → command\n\n\
+        Globals (any position with subcommands): --dry-run, --provider, -y, --learn, …"
 )]
 pub struct Cli {
-    /// Natural language description of what you want to do
-    #[arg(trailing_var_arg = true)]
-    pub args: Vec<String>,
+    #[command(flatten)]
+    pub global: GlobalOpts,
 
-    /// Fix the last failed command
-    #[arg(short, long)]
-    pub fix: bool,
+    #[command(subcommand)]
+    pub command: Option<Commands>,
+}
 
-    /// Show a teaching explanation alongside the command
-    #[arg(short, long)]
+/// Options shared by all subcommands (`global = true` so they work after the verb too).
+#[derive(Parser, Debug, Clone)]
+pub struct GlobalOpts {
+    /// Show teaching explanation alongside the generated command
+    #[arg(short, long, global = true)]
     pub learn: bool,
 
-    /// Let AI do whatever it takes (with confirmation)
-    #[arg(short, long)]
+    /// Let AI proceed even when required tools are missing (with confirmation)
+    #[arg(short, long, global = true)]
     pub anyway: bool,
 
-    /// Only show the generated command, don't execute
-    #[arg(short, long)]
+    /// Only print the generated command; do not execute
+    #[arg(short, long, global = true)]
     pub dry_run: bool,
 
-    /// Skip the confirmation prompt
-    #[arg(short, long)]
+    /// Skip confirmation before running
+    #[arg(short, long, global = true)]
     pub yes: bool,
 
-    /// Override the AI provider (openai, anthropic, gemini, ollama)
-    #[arg(short, long)]
+    /// Override AI provider (openai, anthropic, gemini, ollama)
+    #[arg(short, long, global = true)]
     pub provider: Option<String>,
+}
 
-    /// Full-screen interactive TUI (no prompt on the command line)
-    #[arg(long)]
-    pub tui: bool,
-
-    /// Show or edit configuration
-    #[arg(long)]
-    pub config: bool,
-
-    /// Explain a command instead of generating one
-    #[arg(short, long)]
-    pub explain: bool,
-
-    /// Refine the previous command suggestion
-    #[arg(short, long)]
-    pub refine: bool,
-
-    /// Re-execute the last generated command
-    #[arg(long)]
-    pub last: bool,
-
-    /// Generate shell integration script: idoit init bash|zsh|fish
-    #[arg(long)]
-    pub init: Option<String>,
-
-    /// Save or update a macro @NAME (body from remaining args); stored in macros.toml
-    #[arg(long = "macro", value_name = "NAME")]
-    pub macro_name: Option<String>,
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    /// Print shell integration (eval "$(idoit init bash)")
+    Init {
+        shell: String,
+    },
+    /// Interactive configuration wizard
+    Setup,
+    /// Show current configuration
+    Config,
+    /// Re-execute the last idoit-generated command
+    Last,
+    /// Save macro @NAME from the remaining words (use @NAME in prompts)
+    Macro {
+        name: String,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        body: Vec<String>,
+    },
+    /// Full-screen TUI; use -l / --learn for teaching mode
+    Tui {
+        #[arg(short = 'l', long)]
+        learn: bool,
+    },
+    /// Fix the last failed command using shell history
+    Fix,
+    /// Explain a shell command in plain language
+    Explain {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        command: Vec<String>,
+    },
+    /// Refine the previous suggestion with extra constraints
+    Refine {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        text: Vec<String>,
+    },
+    /// Explicit natural language → command (same as a bare prompt)
+    Run {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        prompt: Vec<String>,
+    },
+    /// Natural language → command (any words not matching a built-in subcommand)
+    #[command(external_subcommand)]
+    Prompt(Vec<OsString>),
 }
 
 impl Cli {
-    pub fn prompt(&self) -> String {
-        self.args.join(" ")
+    pub fn join_prompt(parts: &[String]) -> String {
+        parts.join(" ")
     }
 
-    pub fn has_prompt(&self) -> bool {
-        !self.args.is_empty()
-    }
-
-    /// Check if the first arg is the "init" subcommand (without --)
-    pub fn is_init_subcommand(&self) -> Option<&str> {
-        if self.args.len() >= 1 && self.args[0] == "init" {
-            self.args.get(1).map(|s| s.as_str())
-        } else {
-            None
-        }
+    pub fn join_prompt_os(parts: &[OsString]) -> String {
+        parts
+            .iter()
+            .map(|s| s.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 }

@@ -64,7 +64,7 @@ pub async fn run(
 
     let exec_result = executor::execute(ctx, &resp.command)?;
     output::print_execution_result(exec_result.exit_code);
-    session::record("--fix", &resp.command, true, Some(exec_result.exit_code));
+    session::record("fix", &resp.command, true, Some(exec_result.exit_code));
 
     Ok(())
 }

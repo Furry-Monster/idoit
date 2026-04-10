@@ -1,4 +1,4 @@
-//! On-disk idoit-only history (`history.json`) for `--last` and `--refine`.
+//! On-disk idoit-only history (`history.json`) for `last` and `refine`.
 //! Migrated from legacy `history.jsonl` on first load.
 
 use std::fs::{self, File};

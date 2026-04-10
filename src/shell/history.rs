@@ -29,7 +29,7 @@ pub fn last_command(ctx: &ShellContext, history_override: Option<&str>) -> Resul
     if !path.exists() {
         anyhow::bail!(
             "shell history file not found at {}.\n\
-             Tip: run `eval \"$(idoit init {})\"` in your shell config for better --fix support.",
+             Tip: run `eval \"$(idoit init {})\"` in your shell config for better `idoit fix` support.",
             path.display(),
             ctx.shell,
         );

@@ -51,9 +51,9 @@ trap '__idoit_debug_trap' DEBUG
 PROMPT_COMMAND="__idoit_prompt_command${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
 
 alias ido='idoit'
-alias ifix='idoit --fix'
+alias ifix='idoit fix'
 alias ilearn='idoit --learn'
-alias iexplain='idoit --explain'
+alias iexplain='idoit explain'
 "#
     .to_string()
 }
@@ -93,9 +93,9 @@ add-zsh-hook preexec __idoit_preexec
 add-zsh-hook precmd __idoit_precmd
 
 alias ido='idoit'
-alias ifix='idoit --fix'
+alias ifix='idoit fix'
 alias ilearn='idoit --learn'
-alias iexplain='idoit --explain'
+alias iexplain='idoit explain'
 "#
     .to_string()
 }
@@ -133,9 +133,9 @@ function __idoit_postexec --on-event fish_postexec
 end
 
 alias ido 'idoit'
-alias ifix 'idoit --fix'
+alias ifix 'idoit fix'
 alias ilearn 'idoit --learn'
-alias iexplain 'idoit --explain'
+alias iexplain 'idoit explain'
 "#
     .to_string()
 }
