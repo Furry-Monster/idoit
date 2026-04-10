@@ -1,6 +1,7 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 
+#[derive(Clone)]
 pub struct Spinner {
     bar: ProgressBar,
 }
@@ -17,6 +18,10 @@ impl Spinner {
         bar.set_message(message.to_string());
         bar.enable_steady_tick(Duration::from_millis(80));
         Self { bar }
+    }
+
+    pub fn set_message(&self, message: &str) {
+        self.bar.set_message(message.to_string());
     }
 
     pub fn finish(self) {

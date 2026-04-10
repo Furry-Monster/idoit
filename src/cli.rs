@@ -10,7 +10,10 @@ use clap::Parser;
         idoit find files containing \"TODO\" in src/\n  \
         idoit compress this folder as tar.gz\n  \
         idoit --fix\n  \
-        idoit --learn git rebase"
+        idoit --learn git rebase\n  \
+        idoit --explain 'find . -name \"*.log\" -mtime +7 -delete'\n  \
+        idoit --refine \"only in home directory\"\n  \
+        idoit init bash"
 )]
 pub struct Cli {
     /// Natural language description of what you want to do
@@ -37,13 +40,33 @@ pub struct Cli {
     #[arg(short, long)]
     pub yes: bool,
 
-    /// Override the AI provider (openai, anthropic, ollama)
+    /// Override the AI provider (openai, anthropic, gemini, ollama)
     #[arg(short, long)]
     pub provider: Option<String>,
 
     /// Show or edit configuration
     #[arg(long)]
     pub config: bool,
+
+    /// Explain a command instead of generating one
+    #[arg(short, long)]
+    pub explain: bool,
+
+    /// Refine the previous command suggestion
+    #[arg(short, long)]
+    pub refine: bool,
+
+    /// Re-execute the last generated command
+    #[arg(long)]
+    pub last: bool,
+
+    /// Generate shell integration script: idoit init bash|zsh|fish
+    #[arg(long)]
+    pub init: Option<String>,
+
+    /// Save current prompt as a named alias: --save <name>
+    #[arg(long)]
+    pub save: Option<String>,
 }
 
 impl Cli {
@@ -53,5 +76,14 @@ impl Cli {
 
     pub fn has_prompt(&self) -> bool {
         !self.args.is_empty()
+    }
+
+    /// Check if the first arg is the "init" subcommand (without --)
+    pub fn is_init_subcommand(&self) -> Option<&str> {
+        if self.args.len() >= 1 && self.args[0] == "init" {
+            self.args.get(1).map(|s| s.as_str())
+        } else {
+            None
+        }
     }
 }

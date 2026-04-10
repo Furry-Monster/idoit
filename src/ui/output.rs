@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use console::style;
 
 use crate::ai::types::AiCommandResponse;
@@ -32,11 +34,26 @@ pub fn print_teaching(teaching: &str) {
         println!("  {}", style(line).dim());
     }
     println!();
-    println!(
-        "{}",
-        style("──────────────────").cyan().dim()
-    );
+    println!("{}", style("──────────────────").cyan().dim());
     println!();
+}
+
+pub fn print_explain(text: &str) {
+    println!();
+    for line in text.lines() {
+        println!("  {}", line);
+    }
+    println!();
+}
+
+pub fn print_verbose_info(provider: &str, model: &str, elapsed: Duration) {
+    println!(
+        "  {} provider={}, model={}, time={:.1}s",
+        style("ℹ").dim(),
+        style(provider).dim(),
+        style(model).dim(),
+        elapsed.as_secs_f32()
+    );
 }
 
 pub fn print_execution_result(exit_code: i32) {
@@ -72,10 +89,6 @@ pub fn print_fix_context(last_command: &str) {
 }
 
 #[allow(dead_code)]
-pub fn print_banner() {
-    println!(
-        "  {} {}",
-        style("idoit").bold().cyan(),
-        style("— just do it!").dim()
-    );
+pub fn print_cached_notice() {
+    println!("  {}", style("(cached response)").dim());
 }

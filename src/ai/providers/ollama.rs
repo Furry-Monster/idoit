@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +22,7 @@ struct GenerateRequest {
 
 #[derive(Serialize)]
 struct GenerateOptions {
-    temperature: f32,
+    temperature: f64,
 }
 
 #[derive(Deserialize)]
@@ -29,9 +31,12 @@ struct GenerateResponse {
 }
 
 impl OllamaProvider {
-    pub fn new(host: String) -> Self {
+    pub fn new(host: String, timeout: Duration) -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(timeout)
+                .build()
+                .unwrap_or_default(),
             host: host.trim_end_matches('/').to_string(),
         }
     }

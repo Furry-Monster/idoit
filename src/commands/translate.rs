@@ -3,6 +3,7 @@ use anyhow::{bail, Result};
 use crate::ai::client::AiClient;
 use crate::ai::prompt;
 use crate::config::settings::Settings;
+use crate::session;
 use crate::shell::context::ShellContext;
 use crate::shell::executor;
 use crate::ui::{confirm, output, spinner};
@@ -24,20 +25,25 @@ pub async fn run(
 
     let model = client.model_name(settings);
     let spin = spinner::Spinner::new("thinking...");
-    let resp = client.ask_command(&system, user_input, &model).await;
+    let result = client.ask_command(&system, user_input, &model, settings, Some(&spin)).await;
     spin.finish();
 
-    let resp = resp?;
+    let result = result?;
+    let resp = &result.response;
+
+    if settings.ui.verbose {
+        output::print_verbose_info(client.provider_name(), &model, result.elapsed);
+    }
 
     if !resp.missing_tools.is_empty() && !anyway {
-        output::print_command(&resp);
+        output::print_command(resp);
         bail!(
             "required tools not found: {}. Use --anyway to proceed regardless.",
             resp.missing_tools.join(", ")
         );
     }
 
-    output::print_command(&resp);
+    output::print_command(resp);
 
     if let Some(ref teaching) = resp.teaching {
         if !teaching.is_empty() {
@@ -47,6 +53,7 @@ pub async fn run(
 
     if dry_run {
         output::print_dry_run_notice();
+        session::record(user_input, &resp.command, false, None);
         return Ok(());
     }
 
@@ -57,11 +64,13 @@ pub async fn run(
     };
 
     if !should_confirm {
+        session::record(user_input, &resp.command, false, None);
         return Ok(());
     }
 
-    let result = executor::execute(ctx, &resp.command)?;
-    output::print_execution_result(result.exit_code);
+    let exec_result = executor::execute(ctx, &resp.command)?;
+    output::print_execution_result(exec_result.exit_code);
+    session::record(user_input, &resp.command, true, Some(exec_result.exit_code));
 
     Ok(())
 }

@@ -10,16 +10,24 @@ pub struct HistoryEntry {
 }
 
 pub fn last_command(ctx: &ShellContext) -> Result<HistoryEntry> {
+    // Prefer env var set by shell hook (idoit init)
+    if let Ok(cmd) = std::env::var("__IDOIT_LAST_CMD") {
+        if !cmd.is_empty() {
+            return Ok(HistoryEntry { command: cmd });
+        }
+    }
+
     let path = history_file_path(ctx)?;
 
     if !path.exists() {
         anyhow::bail!(
-            "shell history file not found at {}. Make sure your shell is configured to save history.",
-            path.display()
+            "shell history file not found at {}.\n\
+             Tip: run `eval \"$(idoit init {})\"` in your shell config for better --fix support.",
+            path.display(),
+            ctx.shell,
         );
     }
 
-    // Read as bytes first — zsh can use metafied (binary) encoding
     let raw = std::fs::read(&path)
         .with_context(|| format!("failed to read shell history at {}", path.display()))?;
     let content = String::from_utf8_lossy(&raw);
@@ -32,6 +40,28 @@ pub fn last_command(ctx: &ShellContext) -> Result<HistoryEntry> {
     };
 
     entry.ok_or_else(|| anyhow::anyhow!("shell history is empty"))
+}
+
+pub fn recent_error_output() -> Option<String> {
+    // Read stderr captured by shell hook
+    let stderr_file = std::env::var("__IDOIT_LAST_STDERR").ok()?;
+    let content = std::fs::read_to_string(&stderr_file).ok()?;
+    if content.is_empty() {
+        None
+    } else {
+        // Truncate very long output to keep prompt reasonable
+        Some(if content.len() > 2000 {
+            format!("{}...(truncated)", &content[..2000])
+        } else {
+            content
+        })
+    }
+}
+
+pub fn last_exit_code() -> Option<i32> {
+    std::env::var("__IDOIT_LAST_EXIT")
+        .ok()
+        .and_then(|s| s.parse().ok())
 }
 
 fn history_file_path(ctx: &ShellContext) -> Result<PathBuf> {
@@ -62,14 +92,10 @@ fn parse_bash_history(content: &str) -> Option<HistoryEntry> {
             let trimmed = line.trim();
             !trimmed.is_empty() && !trimmed.starts_with('#')
         })
-        .map(|cmd| HistoryEntry {
-            command: cmd.trim().to_string(),
-        })
+        .map(|cmd| HistoryEntry { command: cmd.trim().to_string() })
 }
 
 fn parse_zsh_history(content: &str) -> Option<HistoryEntry> {
-    // Handle multi-line commands (continuation lines start with whitespace after
-    // a line ending with backslash). We walk backwards through logical entries.
     let mut entries: Vec<String> = Vec::new();
     let mut current: Vec<&str> = Vec::new();
 
@@ -77,15 +103,12 @@ fn parse_zsh_history(content: &str) -> Option<HistoryEntry> {
         if line.trim().is_empty() {
             continue;
         }
-
-        // A new history entry starts with `: ` (extended format) or a non-whitespace char
-        let is_start = line.starts_with(": ") || (!line.starts_with(' ') && !line.starts_with('\t'));
-
+        let is_start =
+            line.starts_with(": ") || (!line.starts_with(' ') && !line.starts_with('\t'));
         if is_start {
             current.push(line);
             current.reverse();
             let full = current.join("\n");
-            // Strip the extended history prefix `: timestamp:duration;`
             let cmd = if full.starts_with(": ") {
                 full.splitn(2, ';').nth(1).unwrap_or(&full)
             } else {
@@ -96,7 +119,6 @@ fn parse_zsh_history(content: &str) -> Option<HistoryEntry> {
                 entries.push(cmd);
             }
             current.clear();
-
             if !entries.is_empty() {
                 break;
             }
@@ -109,11 +131,6 @@ fn parse_zsh_history(content: &str) -> Option<HistoryEntry> {
 }
 
 fn parse_fish_history(content: &str) -> Option<HistoryEntry> {
-    // fish history format:
-    // - cmd: the_command
-    //   when: timestamp
-    //   paths:
-    //     - /some/path
     let mut last_cmd = None;
     for line in content.lines() {
         if let Some(cmd) = line.strip_prefix("- cmd: ") {
@@ -121,13 +138,6 @@ fn parse_fish_history(content: &str) -> Option<HistoryEntry> {
         }
     }
     last_cmd.map(|command| HistoryEntry { command })
-}
-
-#[allow(dead_code)]
-pub fn recent_error_output() -> Option<String> {
-    // Shell history doesn't store stderr. In the future we could integrate
-    // with shell preexec/precmd hooks to capture exit codes and stderr.
-    None
 }
 
 #[cfg(test)]
@@ -164,7 +174,8 @@ mod tests {
 
     #[test]
     fn test_fish_history() {
-        let content = "- cmd: ls -la\n  when: 1234567890\n- cmd: git status\n  when: 1234567891\n";
+        let content =
+            "- cmd: ls -la\n  when: 1234567890\n- cmd: git status\n  when: 1234567891\n";
         let entry = parse_fish_history(content).unwrap();
         assert_eq!(entry.command, "git status");
     }

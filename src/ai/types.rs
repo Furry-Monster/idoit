@@ -5,7 +5,8 @@ pub struct CompletionRequest {
     pub system: String,
     pub user_message: String,
     pub model: String,
-    pub temperature: f32,
+    pub temperature: f64,
+    pub max_tokens: u32,
 }
 
 #[derive(Debug, Clone)]

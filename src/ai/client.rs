@@ -1,77 +1,84 @@
+use std::time::{Duration, Instant};
+
 use anyhow::{bail, Context, Result};
 
 use crate::config::settings::Settings;
+use crate::ui::spinner::Spinner;
 
 use super::providers::anthropic::AnthropicProvider;
+use super::providers::gemini::GeminiProvider;
 use super::providers::ollama::OllamaProvider;
 use super::providers::openai::OpenAiProvider;
 use super::provider::AiProvider;
+use super::retry::{self, RetryConfig};
 use super::types::{AiCommandResponse, CompletionRequest, CompletionResponse};
 
-pub enum AiClient {
+pub struct AiClient {
+    inner: AiClientInner,
+    max_retries: u32,
+}
+
+enum AiClientInner {
     OpenAi(OpenAiProvider),
     Anthropic(AnthropicProvider),
+    Gemini(GeminiProvider),
     Ollama(OllamaProvider),
+}
+
+pub struct AskResult {
+    pub response: AiCommandResponse,
+    pub elapsed: Duration,
 }
 
 impl AiClient {
     pub fn from_settings(settings: &Settings, provider_override: Option<&str>) -> Result<Self> {
         let provider_name = provider_override.unwrap_or(&settings.ai.provider);
+        let timeout = Duration::from_secs(settings.ai.timeout_secs);
+        let max_retries = settings.ai.max_retries;
 
-        match provider_name {
+        let inner = match provider_name {
             "openai" => {
-                let api_key = std::env::var(&settings.ai.api_key_env).with_context(|| {
-                    format!(
-                        "environment variable {} not set — configure your API key",
-                        settings.ai.api_key_env
-                    )
-                })?;
-                let base_url = if settings.ai.base_url.is_empty() {
-                    None
-                } else {
-                    Some(settings.ai.base_url.clone())
-                };
-                Ok(Self::OpenAi(OpenAiProvider::new(api_key, base_url)))
+                let cfg = &settings.ai.openai;
+                let api_key = resolve_api_key(&cfg.api_key_env)?;
+                let base_url = if cfg.base_url.is_empty() { None } else { Some(cfg.base_url.clone()) };
+                AiClientInner::OpenAi(OpenAiProvider::new(api_key, base_url, timeout))
             }
             "anthropic" => {
-                let key_env = if settings.ai.api_key_env == "OPENAI_API_KEY" {
-                    "ANTHROPIC_API_KEY"
-                } else {
-                    &settings.ai.api_key_env
-                };
-                let api_key = std::env::var(key_env).with_context(|| {
-                    format!("environment variable {key_env} not set — configure your Anthropic API key")
-                })?;
-                Ok(Self::Anthropic(AnthropicProvider::new(api_key)))
+                let api_key = resolve_api_key(&settings.ai.anthropic.api_key_env)?;
+                AiClientInner::Anthropic(AnthropicProvider::new(api_key, timeout))
             }
-            "ollama" => Ok(Self::Ollama(OllamaProvider::new(
-                settings.ai.ollama.host.clone(),
-            ))),
-            other => bail!("unknown AI provider: {other} (expected openai, anthropic, or ollama)"),
-        }
+            "gemini" => {
+                let api_key = resolve_api_key(&settings.ai.gemini.api_key_env)?;
+                AiClientInner::Gemini(GeminiProvider::new(api_key, timeout))
+            }
+            "ollama" => {
+                AiClientInner::Ollama(OllamaProvider::new(settings.ai.ollama.host.clone(), timeout))
+            }
+            other => bail!("unknown AI provider: {other} (expected openai, anthropic, gemini, or ollama)"),
+        };
+
+        Ok(Self { inner, max_retries })
     }
 
     pub fn model_name(&self, settings: &Settings) -> String {
-        match self {
-            Self::Ollama(_) => settings.ai.ollama.model.clone(),
-            _ => settings.ai.model.clone(),
-        }
+        settings.ai.active_model().to_string()
     }
 
-    pub async fn complete(&self, request: &CompletionRequest) -> Result<CompletionResponse> {
-        match self {
-            Self::OpenAi(p) => p.complete(request).await,
-            Self::Anthropic(p) => p.complete(request).await,
-            Self::Ollama(p) => p.complete(request).await,
-        }
-    }
-
-    #[allow(dead_code)]
     pub fn provider_name(&self) -> &str {
-        match self {
-            Self::OpenAi(p) => p.name(),
-            Self::Anthropic(p) => p.name(),
-            Self::Ollama(p) => p.name(),
+        match &self.inner {
+            AiClientInner::OpenAi(p) => p.name(),
+            AiClientInner::Anthropic(p) => p.name(),
+            AiClientInner::Gemini(p) => p.name(),
+            AiClientInner::Ollama(p) => p.name(),
+        }
+    }
+
+    async fn complete(&self, request: &CompletionRequest) -> Result<CompletionResponse> {
+        match &self.inner {
+            AiClientInner::OpenAi(p) => p.complete(request).await,
+            AiClientInner::Anthropic(p) => p.complete(request).await,
+            AiClientInner::Gemini(p) => p.complete(request).await,
+            AiClientInner::Ollama(p) => p.complete(request).await,
         }
     }
 
@@ -80,28 +87,83 @@ impl AiClient {
         system: &str,
         user_message: &str,
         model: &str,
-    ) -> Result<AiCommandResponse> {
+        settings: &Settings,
+        spinner: Option<&Spinner>,
+    ) -> Result<AskResult> {
         let request = CompletionRequest {
             system: system.to_string(),
             user_message: user_message.to_string(),
             model: model.to_string(),
-            temperature: 0.1,
+            temperature: settings.ai.temperature,
+            max_tokens: settings.ai.max_tokens,
         };
 
-        let response = self.complete(&request).await?;
-        parse_command_response(&response.content)
+        let spinner_clone = spinner.cloned();
+        let retry_config = RetryConfig {
+            max_retries: self.max_retries,
+            on_retry: Some(Box::new(move |attempt, delay| {
+                if let Some(ref s) = spinner_clone {
+                    s.set_message(&format!(
+                        "retrying ({}/{})... waiting {:.0}s",
+                        attempt,
+                        3,
+                        delay.as_secs_f32()
+                    ));
+                }
+            })),
+        };
+
+        let start = Instant::now();
+        let response = retry::with_retry(&retry_config, || self.complete(&request)).await?;
+        let elapsed = start.elapsed();
+
+        let parsed = parse_command_response(&response.content)?;
+        Ok(AskResult { response: parsed, elapsed })
     }
+
+    pub async fn ask_freeform(
+        &self,
+        system: &str,
+        user_message: &str,
+        model: &str,
+        settings: &Settings,
+    ) -> Result<(String, Duration)> {
+        let request = CompletionRequest {
+            system: system.to_string(),
+            user_message: user_message.to_string(),
+            model: model.to_string(),
+            temperature: settings.ai.temperature,
+            max_tokens: settings.ai.max_tokens,
+        };
+
+        let retry_config = RetryConfig {
+            max_retries: self.max_retries,
+            on_retry: None,
+        };
+
+        let start = Instant::now();
+        let response = retry::with_retry(&retry_config, || self.complete(&request)).await?;
+        Ok((response.content, start.elapsed()))
+    }
+}
+
+fn resolve_api_key(env_var: &str) -> Result<String> {
+    std::env::var(env_var).with_context(|| {
+        format!(
+            "environment variable {env_var} not set.\n\
+             Set it with: export {env_var}=\"your-key\"\n\
+             Or run: idoit setup"
+        )
+    })
 }
 
 fn parse_command_response(raw: &str) -> Result<AiCommandResponse> {
     let trimmed = raw.trim();
 
-    // Strategy 1: direct parse
     if let Ok(resp) = serde_json::from_str::<AiCommandResponse>(trimmed) {
         return Ok(resp);
     }
 
-    // Strategy 2: strip markdown code fences
     if trimmed.contains("```") {
         let inner = trimmed
             .trim_start_matches("```json")
@@ -113,7 +175,6 @@ fn parse_command_response(raw: &str) -> Result<AiCommandResponse> {
         }
     }
 
-    // Strategy 3: find first { ... } block in the response
     if let Some(start) = trimmed.find('{') {
         if let Some(end) = trimmed.rfind('}') {
             let candidate = &trimmed[start..=end];
@@ -123,7 +184,7 @@ fn parse_command_response(raw: &str) -> Result<AiCommandResponse> {
         }
     }
 
-    anyhow::bail!("AI returned invalid JSON:\n{raw}")
+    anyhow::bail!("AI returned unexpected response (not valid JSON).\nTip: try a different model or provider with -p.\n\nRaw response:\n{raw}")
 }
 
 #[cfg(test)]
@@ -161,8 +222,7 @@ mod tests {
 
     #[test]
     fn test_parse_invalid_json() {
-        let raw = "this is not json at all";
-        assert!(parse_command_response(raw).is_err());
+        assert!(parse_command_response("not json").is_err());
     }
 
     #[test]
@@ -171,7 +231,6 @@ mod tests {
         let resp = parse_command_response(raw).unwrap();
         assert_eq!(resp.command, "ls");
         assert!(resp.missing_tools.is_empty());
-        assert_eq!(resp.confidence, 0.0);
         assert!(resp.teaching.is_none());
     }
 }

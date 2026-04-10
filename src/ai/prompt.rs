@@ -40,8 +40,6 @@ You MUST respond with a JSON object and nothing else:
         os = ctx.os,
         shell = ctx.shell,
         cwd = ctx.cwd,
-        tool_list = tool_list,
-        anyway_clause = anyway_clause,
     )
 }
 
@@ -72,6 +70,59 @@ You MUST respond with a JSON object and nothing else:
     )
 }
 
+pub fn explain_system(ctx: &ShellContext) -> String {
+    format!(
+        r#"You are idoit, an AI command-line assistant. The user wants you to explain a shell command in detail.
+
+Environment:
+- OS: {os}
+- Shell: {shell}
+
+Provide a clear, concise explanation. Structure your response as:
+1. A one-line summary of what the command does
+2. A breakdown of each flag/argument
+3. Any important warnings or side effects
+
+Respond in plain text (not JSON). Be concise but thorough."#,
+        os = ctx.os,
+        shell = ctx.shell,
+    )
+}
+
+pub fn refine_system(ctx: &ShellContext) -> String {
+    let tool_list = if ctx.available_tools.is_empty() {
+        "unknown".to_string()
+    } else {
+        ctx.available_tools.join(", ")
+    };
+
+    format!(
+        r#"You are idoit, an AI command-line assistant. The user previously asked for a command and now wants to refine it.
+
+Environment:
+- OS: {os}
+- Shell: {shell}
+- Working directory: {cwd}
+- Available tools: {tool_list}
+
+Rules:
+1. Consider the previous request and suggested command as context.
+2. Apply the user's refinement to produce an updated command.
+3. Be concise in your explanation.
+
+You MUST respond with a JSON object and nothing else:
+{{
+  "command": "the refined shell command",
+  "explanation": "one-sentence explanation of what changed",
+  "missing_tools": [],
+  "confidence": 0.95
+}}"#,
+        os = ctx.os,
+        shell = ctx.shell,
+        cwd = ctx.cwd,
+    )
+}
+
 pub fn learn_suffix() -> &'static str {
     r#"
 
@@ -82,11 +133,26 @@ Additionally, include a "teaching" field in your JSON response with a concise tu
 Keep it brief (5-8 lines max)."#
 }
 
-pub fn fix_user_message(last_command: &str, error_output: &str) -> String {
+pub fn fix_user_message(last_command: &str, error_output: &str, exit_code: Option<i32>) -> String {
     let mut msg = format!("The following command failed:\n```\n{last_command}\n```");
+    if let Some(code) = exit_code {
+        msg.push_str(&format!("\n\nExit code: {code}"));
+    }
     if !error_output.is_empty() {
         msg.push_str(&format!("\n\nError output:\n```\n{error_output}\n```"));
     }
     msg.push_str("\n\nPlease provide the corrected command.");
     msg
+}
+
+pub fn refine_user_message(
+    previous_input: &str,
+    previous_command: &str,
+    refinement: &str,
+) -> String {
+    format!(
+        "Previous request: {previous_input}\n\
+         Previous suggestion: {previous_command}\n\n\
+         Refinement: {refinement}"
+    )
 }

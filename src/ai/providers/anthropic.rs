@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +17,7 @@ struct MessagesRequest {
     max_tokens: u32,
     system: String,
     messages: Vec<Message>,
-    temperature: f32,
+    temperature: f64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -35,9 +37,12 @@ struct ContentBlock {
 }
 
 impl AnthropicProvider {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(api_key: String, timeout: Duration) -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(timeout)
+                .build()
+                .unwrap_or_default(),
             api_key,
         }
     }
@@ -51,7 +56,7 @@ impl AiProvider for AnthropicProvider {
     async fn complete(&self, request: &CompletionRequest) -> Result<CompletionResponse> {
         let body = MessagesRequest {
             model: request.model.clone(),
-            max_tokens: 1024,
+            max_tokens: request.max_tokens,
             system: request.system.clone(),
             messages: vec![Message {
                 role: "user".into(),

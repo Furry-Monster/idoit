@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
@@ -14,7 +16,8 @@ pub struct OpenAiProvider {
 struct ChatRequest {
     model: String,
     messages: Vec<ChatMessage>,
-    temperature: f32,
+    temperature: f64,
+    max_tokens: u32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -34,9 +37,12 @@ struct ChatChoice {
 }
 
 impl OpenAiProvider {
-    pub fn new(api_key: String, base_url: Option<String>) -> Self {
+    pub fn new(api_key: String, base_url: Option<String>, timeout: Duration) -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(timeout)
+                .build()
+                .unwrap_or_default(),
             api_key,
             base_url: base_url
                 .filter(|s| !s.is_empty())
@@ -56,16 +62,11 @@ impl AiProvider for OpenAiProvider {
         let body = ChatRequest {
             model: request.model.clone(),
             messages: vec![
-                ChatMessage {
-                    role: "system".into(),
-                    content: request.system.clone(),
-                },
-                ChatMessage {
-                    role: "user".into(),
-                    content: request.user_message.clone(),
-                },
+                ChatMessage { role: "system".into(), content: request.system.clone() },
+                ChatMessage { role: "user".into(), content: request.user_message.clone() },
             ],
             temperature: request.temperature,
+            max_tokens: request.max_tokens,
         };
 
         let resp = self
