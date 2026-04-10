@@ -149,6 +149,18 @@ You MUST respond with a JSON object and nothing else:
     )
 }
 
+/// Prefix user-facing model text with layered shell context when non-empty.
+pub fn with_shell_context(user_message: &str, context_block: &str) -> String {
+    let block = context_block.trim();
+    if block.is_empty() {
+        user_message.to_string()
+    } else {
+        format!(
+            "Context (order: shell history file → this terminal → idoit run). Use only if helpful.\n\n{block}\n---\n\n{user_message}"
+        )
+    }
+}
+
 pub fn learn_suffix() -> &'static str {
     r#"
 

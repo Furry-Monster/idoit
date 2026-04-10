@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyModifiers};
 
-use crate::session;
+use crate::session::{self, push_run_buffer, SessionEntry};
 use crate::shell::context::ShellContext;
 use crate::shell::executor;
 
@@ -81,6 +81,16 @@ pub async fn handle_key(
                     }
                     st.run_output = buf;
                     session::record(&cmd, &cmd, true, Some(code));
+                    push_run_buffer(
+                        &mut st.idoit_run,
+                        SessionEntry {
+                            ts: chrono::Utc::now().to_rfc3339(),
+                            input: cmd.clone(),
+                            command: cmd.clone(),
+                            executed: true,
+                            exit_code: Some(code),
+                        },
+                    );
                     st.input.clear();
                     st.refresh_shell();
                     st.trans_cmds.clear();

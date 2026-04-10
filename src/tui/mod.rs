@@ -51,6 +51,7 @@ pub async fn run(
         Arc::clone(&settings),
         Arc::clone(&client),
         Arc::clone(&ctx),
+        Arc::clone(&app),
         Arc::clone(&ai_live),
         anyway,
         learn_mode,

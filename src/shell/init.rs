@@ -15,13 +15,24 @@ fn bash_init() -> String {
 # Add to ~/.bashrc: eval "$(idoit init bash)"
 
 __idoit_stderr_file="/tmp/.idoit-stderr-$$"
+__idoit_data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/idoit"
+__idoit_term_log="$__idoit_data_dir/terminal_context.jsonl"
+
+__idoit_append_terminal_session() {
+    local cmd="$1"
+    [ -z "$cmd" ] && return 0
+    case "$cmd" in
+        idoit*|ido|ifix|ilearn|iexplain) return 0 ;;
+    esac
+    cmd="${cmd//$'\n'/ }"
+    mkdir -p "$__idoit_data_dir" 2>/dev/null || true
+    printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date +%s)" "$cmd" >> "$__idoit_term_log" 2>/dev/null || true
+}
 
 __idoit_preexec() {
     export __IDOIT_LAST_CMD="$1"
-    # Wrap next command to capture stderr
 }
 
-# Use DEBUG trap to capture the command before execution
 __idoit_debug_trap() {
     if [ -n "$COMP_LINE" ]; then return; fi
     if [ "$BASH_COMMAND" = "$PROMPT_COMMAND" ]; then return; fi
@@ -30,6 +41,9 @@ __idoit_debug_trap() {
 
 __idoit_prompt_command() {
     export __IDOIT_LAST_EXIT=$?
+    if [ -n "${__IDOIT_LAST_CMD-}" ]; then
+        __idoit_append_terminal_session "$__IDOIT_LAST_CMD"
+    fi
 }
 
 trap '__idoit_debug_trap' DEBUG
@@ -47,12 +61,29 @@ fn zsh_init() -> String {
     r#"# idoit shell integration (zsh)
 # Add to ~/.zshrc: eval "$(idoit init zsh)"
 
+__idoit_data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/idoit"
+__idoit_term_log="$__idoit_data_dir/terminal_context.jsonl"
+
+__idoit_append_terminal_session() {
+    local cmd="$1"
+    [[ -z "$cmd" ]] && return 0
+    case "$cmd" in
+        idoit*|ido|ifix|ilearn|iexplain) return 0 ;;
+    esac
+    cmd="${cmd//$'\n'/ }"
+    mkdir -p "$__idoit_data_dir" 2>/dev/null || true
+    printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date +%s)" "$cmd" >> "$__idoit_term_log" 2>/dev/null || true
+}
+
 __idoit_preexec() {
     export __IDOIT_LAST_CMD="$1"
 }
 
 __idoit_precmd() {
     export __IDOIT_LAST_EXIT=$?
+    if [ -n "${__IDOIT_LAST_CMD-}" ]; then
+        __idoit_append_terminal_session "$__IDOIT_LAST_CMD"
+    fi
 }
 
 autoload -Uz add-zsh-hook
@@ -71,9 +102,31 @@ fn fish_init() -> String {
     r#"# idoit shell integration (fish)
 # Add to ~/.config/fish/config.fish: idoit init fish | source
 
+if set -q XDG_DATA_HOME
+    set -gx __idoit_data_dir "$XDG_DATA_HOME/idoit"
+else
+    set -gx __idoit_data_dir "$HOME/.local/share/idoit"
+end
+set -gx __idoit_term_log "$__idoit_data_dir/terminal_context.jsonl"
+
+function __idoit_append_terminal_session
+    set -l cmd "$argv[1]"
+    test -z "$cmd"; and return
+    set -l base (string split ' ' -- $cmd)[1]
+    switch $base
+        case idoit ido ifix ilearn iexplain
+            return
+    end
+    set cmd (string replace -a \n ' ' "$cmd")
+    mkdir -p "$__idoit_data_dir" 2>/dev/null
+    set -l ts (date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null; or date +%s)
+    printf '%s\t%s\n' "$ts" "$cmd" >> "$__idoit_term_log" 2>/dev/null
+end
+
 function __idoit_postexec --on-event fish_postexec
     set -gx __IDOIT_LAST_CMD $argv[1]
     set -gx __IDOIT_LAST_EXIT $status
+    __idoit_append_terminal_session "$argv[1]"
 end
 
 alias ido 'idoit'

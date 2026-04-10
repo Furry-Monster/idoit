@@ -80,6 +80,94 @@ pub fn default_history_path(shell: &str) -> Result<PathBuf> {
     }
 }
 
+/// Recent commands from the on-disk shell history file, oldest-first within the window.
+pub fn recent_shell_command_lines(
+    ctx: &ShellContext,
+    history_override: Option<&str>,
+    limit: usize,
+) -> Result<Vec<String>> {
+    let path = history_file_path(ctx, history_override)?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let raw = std::fs::read(&path)
+        .with_context(|| format!("failed to read shell history at {}", path.display()))?;
+    let content = String::from_utf8_lossy(&raw);
+    let shell = ctx.shell.as_str();
+    let mut cmds = match shell {
+        "fish" => list_fish_commands_chrono(&content),
+        "zsh" => list_zsh_commands_chrono(&content),
+        _ => list_bash_commands_chrono(&content),
+    };
+    if cmds.len() > limit {
+        cmds = cmds.split_off(cmds.len() - limit);
+    }
+    Ok(cmds)
+}
+
+fn list_bash_commands_chrono(content: &str) -> Vec<String> {
+    content
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(|s| s.to_string())
+        .collect()
+}
+
+fn list_fish_commands_chrono(content: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for line in content.lines() {
+        if let Some(cmd) = line.strip_prefix("- cmd: ") {
+            let c = cmd.trim();
+            if !c.is_empty() {
+                out.push(c.to_string());
+            }
+        }
+    }
+    out
+}
+
+fn list_zsh_commands_chrono(content: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut current: Vec<String> = Vec::new();
+
+    let flush = |current: &mut Vec<String>, out: &mut Vec<String>| {
+        if current.is_empty() {
+            return;
+        }
+        let full = current.join("\n");
+        let cmd = if full.starts_with(": ") {
+            full.splitn(2, ';')
+                .nth(1)
+                .unwrap_or(&full)
+                .trim()
+                .to_string()
+        } else {
+            full.trim().to_string()
+        };
+        if !cmd.is_empty() {
+            out.push(cmd);
+        }
+        current.clear();
+    };
+
+    for line in content.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let is_header =
+            line.starts_with(": ") || (!line.starts_with(' ') && !line.starts_with('\t'));
+        if is_header {
+            flush(&mut current, &mut out);
+            current.push(line.to_string());
+        } else {
+            current.push(line.to_string());
+        }
+    }
+    flush(&mut current, &mut out);
+    out
+}
+
 pub fn history_file_path(ctx: &ShellContext, history_override: Option<&str>) -> Result<PathBuf> {
     if let Some(path) = history_override {
         let trimmed = path.trim();
@@ -200,5 +288,12 @@ mod tests {
         assert!(parse_bash_history("").is_none());
         assert!(parse_zsh_history("").is_none());
         assert!(parse_fish_history("").is_none());
+    }
+
+    #[test]
+    fn test_list_zsh_chrono_order() {
+        let content = ": 1:0;ls\n: 2:0;git status\n";
+        let v = list_zsh_commands_chrono(content);
+        assert_eq!(v, vec!["ls", "git status"]);
     }
 }

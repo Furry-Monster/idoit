@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use crate::ai::types::AiCommandResponse;
+use crate::session::SessionEntry;
 
 use super::completion::{ghost_suffix, shell_candidates, split_last_token};
 
@@ -24,6 +25,8 @@ pub struct App {
     pub status_line: String,
     pub run_output: String,
     pub diag_scroll: u16,
+    /// This TUI run only: suggestions / executes (layer 3 for `LayeredContext`).
+    pub idoit_run: Vec<SessionEntry>,
 }
 
 impl App {
@@ -45,6 +48,7 @@ impl App {
             status_line: String::new(),
             run_output: String::new(),
             diag_scroll: 0,
+            idoit_run: Vec::new(),
         }
     }
 

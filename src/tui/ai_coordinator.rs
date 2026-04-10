@@ -13,6 +13,7 @@ use crate::ai::prompt;
 use crate::ai::types::AiCommandResponse;
 use crate::config::settings::Settings;
 use crate::macros;
+use crate::session::{self, SessionEntry};
 use crate::shell::context::ShellContext;
 
 use super::app::App;
@@ -78,6 +79,7 @@ pub fn spawn_ai_coordinator(
     settings: Arc<Settings>,
     client: Arc<AiClient>,
     ctx: Arc<ShellContext>,
+    app: Arc<Mutex<App>>,
     ai_live: Arc<AtomicU64>,
     anyway: bool,
     learn_mode: bool,
@@ -95,6 +97,7 @@ pub fn spawn_ai_coordinator(
         settings,
         client,
         ctx,
+        app,
         ai_live,
         anyway,
         learn_mode,
@@ -112,6 +115,7 @@ async fn coordinator_loop(
     settings: Arc<Settings>,
     client: Arc<AiClient>,
     ctx: Arc<ShellContext>,
+    app: Arc<Mutex<App>>,
     ai_live: Arc<AtomicU64>,
     anyway: bool,
     learn_mode: bool,
@@ -145,6 +149,16 @@ async fn coordinator_loop(
         let gen = tick.gen;
         let line_trim = tick.line.trim();
 
+        let expanded_line = if line_trim.len() >= 2 {
+            macros::expand(line_trim).text
+        } else {
+            String::new()
+        };
+
+        let idoit_snap = app.lock().unwrap().idoit_run.clone();
+        let ctx_block = session::context::LayeredContext::gather(&ctx, &settings, Some(&idoit_snap))
+            .format_block();
+
         let sys_translate = prompt::translate_system(&ctx, anyway);
         let model = client.model_name(&settings);
 
@@ -165,30 +179,30 @@ async fn coordinator_loop(
                 let d_res = if line_trim.is_empty() {
                     Ok("note: start typing a command or describe what you want to do".into())
                 } else {
-                    let expanded = macros::expand(line_trim).text;
+                    let diag_user = prompt::with_shell_context(&expanded_line, &ctx_block);
                     let sys_diag = prompt::tui_learn_diagnostic_system(&ctx);
                     client
-                        .ask_freeform(&sys_diag, &expanded, &model, &settings)
+                        .ask_freeform(&sys_diag, &diag_user, &model, &settings)
                         .await
                         .map(|(s, _)| s)
                         .map_err(|e| e.to_string())
                 };
                 (t_res, d_res)
             } else {
-                let expanded = macros::expand(line_trim).text;
-                let exp_clone = expanded.clone();
+                let user_t = prompt::with_shell_context(&expanded_line, &ctx_block);
+                let user_d = user_t.clone();
                 let sys_diag = prompt::tui_learn_diagnostic_system(&ctx);
                 let (t_res, d_res) = tokio::join!(
                     async {
                         client
-                            .ask_command(&sys_translate, &expanded, &model, &settings, None)
+                            .ask_command(&sys_translate, &user_t, &model, &settings, None)
                             .await
                             .map(|a| a.response)
                             .map_err(|e| e.to_string())
                     },
                     async {
                         client
-                            .ask_freeform(&sys_diag, &exp_clone, &model, &settings)
+                            .ask_freeform(&sys_diag, &user_d, &model, &settings)
                             .await
                             .map(|(s, _)| s)
                             .map_err(|e| e.to_string())
@@ -199,9 +213,9 @@ async fn coordinator_loop(
         } else if line_trim.len() < 2 {
             (empty_translate(), Ok(String::new()))
         } else {
-            let expanded = macros::expand(line_trim).text;
+            let user_t = prompt::with_shell_context(&expanded_line, &ctx_block);
             let t_res = client
-                .ask_command(&sys_translate, &expanded, &model, &settings, None)
+                .ask_command(&sys_translate, &user_t, &model, &settings, None)
                 .await
                 .map(|a| a.response)
                 .map_err(|e| e.to_string());
@@ -210,6 +224,20 @@ async fn coordinator_loop(
 
         if ai_live.load(Ordering::SeqCst) != gen {
             continue;
+        }
+
+        if let Ok(ref resp) = translate_result {
+            if line_trim.len() >= 2 && !resp.command.trim().is_empty() {
+                let entry = SessionEntry {
+                    ts: chrono::Utc::now().to_rfc3339(),
+                    input: expanded_line.clone(),
+                    command: resp.command.clone(),
+                    executed: false,
+                    exit_code: None,
+                };
+                let mut g = app.lock().unwrap();
+                session::push_run_buffer(&mut g.idoit_run, entry);
+            }
         }
 
         out_seq = out_seq.wrapping_add(1);

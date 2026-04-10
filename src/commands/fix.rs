@@ -27,7 +27,9 @@ pub async fn run(
         system.push_str(prompt::learn_suffix());
     }
 
+    let layered = session::context::LayeredContext::gather(ctx, settings, None);
     let user_msg = prompt::fix_user_message(&entry.command, &error_output, exit_code);
+    let user_msg = prompt::with_shell_context(&user_msg, &layered.format_block());
     let model = client.model_name(settings);
 
     let spin = spinner::Spinner::new("diagnosing...");

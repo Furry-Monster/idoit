@@ -23,10 +23,13 @@ pub async fn run(
         system.push_str(prompt::learn_suffix());
     }
 
+    let layered = session::context::LayeredContext::gather(ctx, settings, None);
+    let user_with_ctx = prompt::with_shell_context(user_input, &layered.format_block());
+
     let model = client.model_name(settings);
     let spin = spinner::Spinner::new("thinking...");
     let result = client
-        .ask_command(&system, user_input, &model, settings, Some(&spin))
+        .ask_command(&system, &user_with_ctx, &model, settings, Some(&spin))
         .await;
     spin.finish();
 

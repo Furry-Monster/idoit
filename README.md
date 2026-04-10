@@ -17,6 +17,11 @@ Run `idoit --help` for flags. Common ones: `--fix`, `--explain`, `--refine`, `--
 - `~/.config/idoit/config.toml`
 - Keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, or use Ollama locally.
 
+## Data (local)
+
+- `~/.local/share/idoit/history.json` — idoit-only log for `--last` / `--refine`
+- `~/.local/share/idoit/terminal_context.jsonl` — recent non-idoit commands (filled by `idoit init` hooks)
+
 ## Shell helpers
 
 ```bash
