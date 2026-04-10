@@ -1,6 +1,6 @@
 use anyhow::Result;
 use console::style;
-use dialoguer::{Confirm, Input, Password, Select};
+use dialoguer::{Confirm, Input, Select};
 
 use crate::config;
 use crate::config::settings::Settings;
@@ -32,10 +32,10 @@ pub fn run() -> Result<()> {
         "openai" => {
             let api_key_env = settings.ai.openai.api_key_env.clone();
             let model = settings.ai.openai.model.clone();
-            let api_key = Password::new()
+            let api_key: String = Input::new()
                 .with_prompt("  OpenAI API key")
-                .allow_empty_password(true)
-                .interact()?;
+                .allow_empty(true)
+                .interact_text()?;
             settings.ai.openai.api_key = api_key;
             println!(
                 "  {} set {} in your shell environment",
@@ -51,10 +51,10 @@ pub fn run() -> Result<()> {
         "anthropic" => {
             let api_key_env = settings.ai.anthropic.api_key_env.clone();
             let model = settings.ai.anthropic.model.clone();
-            let api_key = Password::new()
+            let api_key: String = Input::new()
                 .with_prompt("  Anthropic API key")
-                .allow_empty_password(true)
-                .interact()?;
+                .allow_empty(true)
+                .interact_text()?;
             settings.ai.anthropic.api_key = api_key;
             println!(
                 "  {} set {} in your shell environment",
@@ -70,10 +70,10 @@ pub fn run() -> Result<()> {
         "gemini" => {
             let api_key_env = settings.ai.gemini.api_key_env.clone();
             let model = settings.ai.gemini.model.clone();
-            let api_key = Password::new()
+            let api_key: String = Input::new()
                 .with_prompt("  Gemini API key")
-                .allow_empty_password(true)
-                .interact()?;
+                .allow_empty(true)
+                .interact_text()?;
             settings.ai.gemini.api_key = api_key;
             println!(
                 "  {} set {} in your shell environment",
