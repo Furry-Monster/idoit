@@ -72,11 +72,7 @@ pub async fn run(
         {
             let g = app.lock().unwrap();
             terminal.draw(|f| {
-                draw::draw(
-                    f,
-                    &g,
-                    cursor_visible.load(Ordering::Relaxed),
-                );
+                draw::draw(f, &g, cursor_visible.load(Ordering::Relaxed));
             })?;
         }
 

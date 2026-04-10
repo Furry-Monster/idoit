@@ -1,8 +1,8 @@
 mod ai;
-mod macros;
 mod cli;
 mod commands;
 mod config;
+mod macros;
 mod session;
 mod shell;
 mod tui;

@@ -40,12 +40,9 @@ impl LayeredContext {
             }
         };
 
-        let shell_history_file = history::recent_shell_command_lines(
-            ctx,
-            hist_override,
-            SHELL_HISTORY_SNIPPET,
-        )
-        .unwrap_or_default();
+        let shell_history_file =
+            history::recent_shell_command_lines(ctx, hist_override, SHELL_HISTORY_SNIPPET)
+                .unwrap_or_default();
 
         let terminal_session =
             terminal_log::read_terminal_session_commands(TERMINAL_SESSION_SNIPPET);

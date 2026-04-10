@@ -56,9 +56,7 @@ pub struct GlobalOpts {
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Print shell integration (eval "$(idoit init bash)")
-    Init {
-        shell: String,
-    },
+    Init { shell: String },
     /// Interactive configuration wizard
     Setup,
     /// Show current configuration

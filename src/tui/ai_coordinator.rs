@@ -156,8 +156,9 @@ async fn coordinator_loop(
         };
 
         let idoit_snap = app.lock().unwrap().idoit_run.clone();
-        let ctx_block = session::context::LayeredContext::gather(&ctx, &settings, Some(&idoit_snap))
-            .format_block();
+        let ctx_block =
+            session::context::LayeredContext::gather(&ctx, &settings, Some(&idoit_snap))
+                .format_block();
 
         let sys_translate = prompt::translate_system(&ctx, anyway);
         let model = client.model_name(&settings);

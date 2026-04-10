@@ -97,39 +97,22 @@ pub async fn run(cli: Cli) -> Result<()> {
         Some(Commands::Tui { learn }) => {
             let learn_mode = g.learn || learn;
             let settings = Arc::new(settings);
-            let client = Arc::new(AiClient::from_settings(
-                &settings,
-                g.provider.as_deref(),
-            )?);
+            let client = Arc::new(AiClient::from_settings(&settings, g.provider.as_deref())?);
             let ctx = Arc::new(ShellContext::detect(&settings.behavior.shell));
-            tui::run(
-                settings,
-                client,
-                ctx,
-                learn_mode,
-                g.anyway,
-                g.dry_run,
-            )
-            .await
+            tui::run(settings, client, ctx, learn_mode, g.anyway, g.dry_run).await
         }
         Some(Commands::Fix) => {
             let client = AiClient::from_settings(&settings, g.provider.as_deref())?;
             let ctx = ShellContext::detect(&settings.behavior.shell);
             let learn = g.learn || settings.behavior.learn_by_default;
-            fix::run(
-                &settings,
-                &client,
-                &ctx,
-                learn,
-                g.dry_run,
-                g.yes,
-            )
-            .await
+            fix::run(&settings, &client, &ctx, learn, g.dry_run, g.yes).await
         }
         Some(Commands::Explain { command }) => {
             let cmd_line = Cli::join_prompt(&command);
             if cmd_line.is_empty() {
-                ui::output::print_error("explain needs a command. Example: idoit explain 'find . -name \"*.rs\"'");
+                ui::output::print_error(
+                    "explain needs a command. Example: idoit explain 'find . -name \"*.rs\"'",
+                );
                 eprintln!();
                 eprintln!("  Usage: idoit explain <shell command…>");
                 std::process::exit(1);
@@ -141,26 +124,22 @@ pub async fn run(cli: Cli) -> Result<()> {
         Some(Commands::Refine { text }) => {
             let refinement = Cli::join_prompt(&text);
             if refinement.is_empty() {
-                ui::output::print_error("refine needs text. Example: idoit refine \"only under src\"");
+                ui::output::print_error(
+                    "refine needs text. Example: idoit refine \"only under src\"",
+                );
                 std::process::exit(1);
             }
             let refinement = macros::expand(&refinement).text;
             let client = AiClient::from_settings(&settings, g.provider.as_deref())?;
             let ctx = ShellContext::detect(&settings.behavior.shell);
-            refine::run(
-                &refinement,
-                &settings,
-                &client,
-                &ctx,
-                g.dry_run,
-                g.yes,
-            )
-            .await
+            refine::run(&refinement, &settings, &client, &ctx, g.dry_run, g.yes).await
         }
         Some(Commands::Run { prompt }) => {
             let prompt = Cli::join_prompt(&prompt);
             if prompt.is_empty() {
-                ui::output::print_error("run needs a prompt. Example: idoit run find all TODO in src");
+                ui::output::print_error(
+                    "run needs a prompt. Example: idoit run find all TODO in src",
+                );
                 std::process::exit(1);
             }
             run_translate(&g, &settings, &prompt).await

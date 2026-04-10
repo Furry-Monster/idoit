@@ -32,8 +32,7 @@ fn history_jsonl_path() -> PathBuf {
 
 fn atomic_write(path: &std::path::Path, data: &HistoryFile) -> Result<()> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("create {}", parent.display()))?;
+        fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
     }
     let tmp = path.with_extension("json.tmp");
     {
@@ -41,7 +40,8 @@ fn atomic_write(path: &std::path::Path, data: &HistoryFile) -> Result<()> {
         serde_json::to_writer(&mut f, data).with_context(|| "serialize history.json")?;
         f.sync_all().ok();
     }
-    fs::rename(&tmp, path).with_context(|| format!("rename {} -> {}", tmp.display(), path.display()))?;
+    fs::rename(&tmp, path)
+        .with_context(|| format!("rename {} -> {}", tmp.display(), path.display()))?;
     Ok(())
 }
 
