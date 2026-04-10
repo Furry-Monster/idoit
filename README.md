@@ -1,5 +1,7 @@
 # idoit
 
+![demo](demo.png)
+
 Turn plain English into shell commands. AI suggests a command; you confirm before it runs.
 
 ## Quick start
