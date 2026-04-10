@@ -42,6 +42,7 @@ __idoit_debug_trap() {
 __idoit_prompt_command() {
     export __IDOIT_LAST_EXIT=$?
     if [ -n "${__IDOIT_LAST_CMD-}" ]; then
+        export __IDOIT_COMPLETED_CMD="$__IDOIT_LAST_CMD"
         __idoit_append_terminal_session "$__IDOIT_LAST_CMD"
     fi
 }
@@ -82,6 +83,7 @@ __idoit_preexec() {
 __idoit_precmd() {
     export __IDOIT_LAST_EXIT=$?
     if [ -n "${__IDOIT_LAST_CMD-}" ]; then
+        export __IDOIT_COMPLETED_CMD="$__IDOIT_LAST_CMD"
         __idoit_append_terminal_session "$__IDOIT_LAST_CMD"
     fi
 }
@@ -124,6 +126,7 @@ function __idoit_append_terminal_session
 end
 
 function __idoit_postexec --on-event fish_postexec
+    set -gx __IDOIT_COMPLETED_CMD $argv[1]
     set -gx __IDOIT_LAST_CMD $argv[1]
     set -gx __IDOIT_LAST_EXIT $status
     __idoit_append_terminal_session "$argv[1]"

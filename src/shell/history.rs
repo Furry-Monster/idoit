@@ -10,7 +10,14 @@ pub struct HistoryEntry {
 }
 
 pub fn last_command(ctx: &ShellContext, history_override: Option<&str>) -> Result<HistoryEntry> {
-    // Prefer env var set by shell hook (idoit init)
+    // Set in precmd / PROMPT_COMMAND / fish postexec: the command that *finished* last.
+    // (__IDOIT_LAST_CMD is the line about to run, so a child idoit would see "idoit ..." otherwise.)
+    if let Ok(cmd) = std::env::var("__IDOIT_COMPLETED_CMD") {
+        if !cmd.is_empty() {
+            return Ok(HistoryEntry { command: cmd });
+        }
+    }
+    // Legacy hook name (wrong for subprocesses; keep as fallback)
     if let Ok(cmd) = std::env::var("__IDOIT_LAST_CMD") {
         if !cmd.is_empty() {
             return Ok(HistoryEntry { command: cmd });
