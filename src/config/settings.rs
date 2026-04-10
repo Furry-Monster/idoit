@@ -1,17 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Which AI backend to use (`[ai] provider` in config and `-p` / `--provider` on the CLI).
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Default,
-    clap::ValueEnum,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, clap::ValueEnum)]
 #[serde(rename_all = "lowercase")]
 #[clap(rename_all = "lower")]
 pub enum AiProviderId {

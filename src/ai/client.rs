@@ -110,14 +110,15 @@ impl AiClient {
         };
 
         let spinner_clone = spinner.cloned();
+        let max_retries = self.max_retries;
         let retry_config = RetryConfig {
-            max_retries: self.max_retries,
+            max_retries,
             on_retry: Some(Box::new(move |attempt, delay| {
                 if let Some(ref s) = spinner_clone {
                     s.set_message(&format!(
                         "retrying ({}/{})... waiting {:.0}s",
                         attempt,
-                        3,
+                        max_retries,
                         delay.as_secs_f32()
                     ));
                 }
