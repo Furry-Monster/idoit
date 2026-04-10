@@ -5,11 +5,11 @@ use anyhow::{bail, Context, Result};
 use crate::config::settings::Settings;
 use crate::ui::spinner::Spinner;
 
+use super::provider::AiProvider;
 use super::providers::anthropic::AnthropicProvider;
 use super::providers::gemini::GeminiProvider;
 use super::providers::ollama::OllamaProvider;
 use super::providers::openai::OpenAiProvider;
-use super::provider::AiProvider;
 use super::retry::{self, RetryConfig};
 use super::types::{AiCommandResponse, CompletionRequest, CompletionResponse};
 
@@ -39,22 +39,33 @@ impl AiClient {
         let inner = match provider_name {
             "openai" => {
                 let cfg = &settings.ai.openai;
-                let api_key = resolve_api_key(&cfg.api_key_env)?;
-                let base_url = if cfg.base_url.is_empty() { None } else { Some(cfg.base_url.clone()) };
+                let api_key = resolve_api_key(&cfg.api_key, &cfg.api_key_env)?;
+                let base_url = if cfg.base_url.is_empty() {
+                    None
+                } else {
+                    Some(cfg.base_url.clone())
+                };
                 AiClientInner::OpenAi(OpenAiProvider::new(api_key, base_url, timeout))
             }
             "anthropic" => {
-                let api_key = resolve_api_key(&settings.ai.anthropic.api_key_env)?;
+                let api_key = resolve_api_key(
+                    &settings.ai.anthropic.api_key,
+                    &settings.ai.anthropic.api_key_env,
+                )?;
                 AiClientInner::Anthropic(AnthropicProvider::new(api_key, timeout))
             }
             "gemini" => {
-                let api_key = resolve_api_key(&settings.ai.gemini.api_key_env)?;
+                let api_key =
+                    resolve_api_key(&settings.ai.gemini.api_key, &settings.ai.gemini.api_key_env)?;
                 AiClientInner::Gemini(GeminiProvider::new(api_key, timeout))
             }
-            "ollama" => {
-                AiClientInner::Ollama(OllamaProvider::new(settings.ai.ollama.host.clone(), timeout))
-            }
-            other => bail!("unknown AI provider: {other} (expected openai, anthropic, gemini, or ollama)"),
+            "ollama" => AiClientInner::Ollama(OllamaProvider::new(
+                settings.ai.ollama.host.clone(),
+                timeout,
+            )),
+            other => bail!(
+                "unknown AI provider: {other} (expected openai, anthropic, gemini, or ollama)"
+            ),
         };
 
         Ok(Self { inner, max_retries })
@@ -118,7 +129,10 @@ impl AiClient {
         let elapsed = start.elapsed();
 
         let parsed = parse_command_response(&response.content)?;
-        Ok(AskResult { response: parsed, elapsed })
+        Ok(AskResult {
+            response: parsed,
+            elapsed,
+        })
     }
 
     pub async fn ask_freeform(
@@ -147,12 +161,17 @@ impl AiClient {
     }
 }
 
-fn resolve_api_key(env_var: &str) -> Result<String> {
+fn resolve_api_key(config_value: &str, env_var: &str) -> Result<String> {
+    let from_config = config_value.trim();
+    if !from_config.is_empty() {
+        return Ok(from_config.to_string());
+    }
+
     std::env::var(env_var).with_context(|| {
         format!(
             "environment variable {env_var} not set.\n\
              Set it with: export {env_var}=\"your-key\"\n\
-             Or run: idoit setup"
+             Or save API key in config via: idoit setup"
         )
     })
 }
@@ -217,7 +236,10 @@ mod tests {
     fn test_parse_json_with_teaching() {
         let raw = r#"{"command": "grep -r 'TODO' src/", "explanation": "search for TODOs", "missing_tools": [], "confidence": 0.9, "teaching": "grep searches file contents.\n-r means recursive."}"#;
         let resp = parse_command_response(raw).unwrap();
-        assert_eq!(resp.teaching.unwrap(), "grep searches file contents.\n-r means recursive.");
+        assert_eq!(
+            resp.teaching.unwrap(),
+            "grep searches file contents.\n-r means recursive."
+        );
     }
 
     #[test]

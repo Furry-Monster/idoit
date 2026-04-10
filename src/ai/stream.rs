@@ -34,10 +34,7 @@ pub fn extract_anthropic_delta(json_data: &str) -> Option<String> {
     let v: serde_json::Value = serde_json::from_str(json_data).ok()?;
     let event_type = v.get("type")?.as_str()?;
     if event_type == "content_block_delta" {
-        v.get("delta")?
-            .get("text")?
-            .as_str()
-            .map(|s| s.to_string())
+        v.get("delta")?.get("text")?.as_str().map(|s| s.to_string())
     } else {
         None
     }

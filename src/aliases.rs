@@ -21,13 +21,11 @@ pub fn save(name: &str, description: &str) -> Result<()> {
     aliases.insert(name.to_string(), description.to_string());
 
     let dir = crate::config::config_dir();
-    std::fs::create_dir_all(&dir)
-        .with_context(|| format!("failed to create {}", dir.display()))?;
+    std::fs::create_dir_all(&dir).with_context(|| format!("failed to create {}", dir.display()))?;
 
-    let content = toml::to_string_pretty(&aliases)
-        .with_context(|| "failed to serialize aliases")?;
-    std::fs::write(aliases_path(), content)
-        .with_context(|| "failed to write aliases.toml")?;
+    let content =
+        toml::to_string_pretty(&aliases).with_context(|| "failed to serialize aliases")?;
+    std::fs::write(aliases_path(), content).with_context(|| "failed to write aliases.toml")?;
 
     Ok(())
 }

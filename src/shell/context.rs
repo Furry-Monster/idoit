@@ -2,11 +2,63 @@ use std::env;
 use std::path::PathBuf;
 
 const COMMON_TOOLS: &[&str] = &[
-    "grep", "rg", "find", "fd", "awk", "sed", "sort", "uniq", "wc", "head", "tail", "cat",
-    "less", "tar", "gzip", "zip", "unzip", "curl", "wget", "jq", "xargs", "cut", "tr", "diff",
-    "patch", "git", "docker", "ssh", "rsync", "make", "cmake", "python", "python3", "node",
-    "npm", "cargo", "go", "java", "ruby", "perl", "ffmpeg", "convert", "ls", "cp", "mv", "rm",
-    "mkdir", "chmod", "chown", "ln", "du", "df", "ps", "kill", "top", "htop", "systemctl",
+    "grep",
+    "rg",
+    "find",
+    "fd",
+    "awk",
+    "sed",
+    "sort",
+    "uniq",
+    "wc",
+    "head",
+    "tail",
+    "cat",
+    "less",
+    "tar",
+    "gzip",
+    "zip",
+    "unzip",
+    "curl",
+    "wget",
+    "jq",
+    "xargs",
+    "cut",
+    "tr",
+    "diff",
+    "patch",
+    "git",
+    "docker",
+    "ssh",
+    "rsync",
+    "make",
+    "cmake",
+    "python",
+    "python3",
+    "node",
+    "npm",
+    "cargo",
+    "go",
+    "java",
+    "ruby",
+    "perl",
+    "ffmpeg",
+    "convert",
+    "ls",
+    "cp",
+    "mv",
+    "rm",
+    "mkdir",
+    "chmod",
+    "chown",
+    "ln",
+    "du",
+    "df",
+    "ps",
+    "kill",
+    "top",
+    "htop",
+    "systemctl",
 ];
 
 #[derive(Debug, Clone)]
@@ -82,11 +134,7 @@ fn detect_available_tools() -> Vec<String> {
 
     COMMON_TOOLS
         .iter()
-        .filter(|tool| {
-            path_dirs
-                .iter()
-                .any(|dir| dir.join(tool).is_file())
-        })
+        .filter(|tool| path_dirs.iter().any(|dir| dir.join(tool).is_file()))
         .map(|t| t.to_string())
         .collect()
 }

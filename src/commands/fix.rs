@@ -16,7 +16,7 @@ pub async fn run(
     dry_run: bool,
     auto_yes: bool,
 ) -> Result<()> {
-    let entry = history::last_command(ctx)?;
+    let entry = history::last_command(ctx, Some(&settings.behavior.history_path))?;
     output::print_fix_context(&entry.command);
 
     let error_output = history::recent_error_output().unwrap_or_default();
@@ -31,7 +31,9 @@ pub async fn run(
     let model = client.model_name(settings);
 
     let spin = spinner::Spinner::new("diagnosing...");
-    let result = client.ask_command(&system, &user_msg, &model, settings, Some(&spin)).await;
+    let result = client
+        .ask_command(&system, &user_msg, &model, settings, Some(&spin))
+        .await;
     spin.finish();
 
     let result = result?;

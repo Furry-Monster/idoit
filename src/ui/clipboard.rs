@@ -1,5 +1,5 @@
-use std::process::{Command, Stdio};
 use std::io::Write;
+use std::process::{Command, Stdio};
 
 /// Copy text to the system clipboard. Returns true on success.
 #[allow(dead_code)]

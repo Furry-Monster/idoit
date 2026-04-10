@@ -24,19 +24,6 @@ async fn main() {
 
 async fn run() -> Result<()> {
     let cli = Cli::parse();
-    let settings = config::load()?;
-
-    // Wire ui.color — respect config and NO_COLOR standard
-    let no_color = std::env::var("NO_COLOR").is_ok();
-    if !settings.ui.color || no_color {
-        console::set_colors_enabled(false);
-        console::set_colors_enabled_stderr(false);
-    }
-
-    // idoit --config
-    if cli.config {
-        return config::show_config(&settings);
-    }
 
     // idoit --init <shell> or idoit init <shell>
     if let Some(ref shell_name) = cli.init {
@@ -53,6 +40,29 @@ async fn run() -> Result<()> {
         return commands::config_wizard::run();
     }
 
+    // First launch: no config yet, auto-start setup wizard
+    if !config::exists() {
+        println!(
+            "  {} first launch detected. Running setup...",
+            style("→").cyan()
+        );
+        commands::config_wizard::run()?;
+    }
+
+    let settings = config::load()?;
+
+    // Wire ui.color — respect config and NO_COLOR standard
+    let no_color = std::env::var("NO_COLOR").is_ok();
+    if !settings.ui.color || no_color {
+        console::set_colors_enabled(false);
+        console::set_colors_enabled_stderr(false);
+    }
+
+    // idoit --config
+    if cli.config {
+        return config::show_config(&settings);
+    }
+
     // idoit --last — re-execute last generated command
     if cli.last {
         return run_last(&settings).await;
@@ -61,7 +71,9 @@ async fn run() -> Result<()> {
     // idoit --save <name> <prompt...>
     if let Some(ref alias_name) = cli.save {
         if !cli.has_prompt() {
-            ui::output::print_error("--save requires a prompt. Usage: idoit --save <name> <description...>");
+            ui::output::print_error(
+                "--save requires a prompt. Usage: idoit --save <name> <description...>",
+            );
             std::process::exit(1);
         }
         aliases::save(alias_name, &cli.prompt())?;
@@ -155,11 +167,7 @@ async fn run_last(settings: &config::settings::Settings) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("no previous idoit command found in session history"))?;
 
     println!();
-    println!(
-        "  {} {}",
-        style("$").dim(),
-        style(&cmd).green().bold()
-    );
+    println!("  {} {}", style("$").dim(), style(&cmd).green().bold());
     println!();
 
     let ctx = shell::context::ShellContext::detect(&settings.behavior.shell);

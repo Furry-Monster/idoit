@@ -25,7 +25,9 @@ pub async fn run(
 
     let model = client.model_name(settings);
     let spin = spinner::Spinner::new("thinking...");
-    let result = client.ask_command(&system, user_input, &model, settings, Some(&spin)).await;
+    let result = client
+        .ask_command(&system, user_input, &model, settings, Some(&spin))
+        .await;
     spin.finish();
 
     let result = result?;

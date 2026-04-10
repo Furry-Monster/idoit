@@ -62,8 +62,14 @@ impl AiProvider for OpenAiProvider {
         let body = ChatRequest {
             model: request.model.clone(),
             messages: vec![
-                ChatMessage { role: "system".into(), content: request.system.clone() },
-                ChatMessage { role: "user".into(), content: request.user_message.clone() },
+                ChatMessage {
+                    role: "system".into(),
+                    content: request.system.clone(),
+                },
+                ChatMessage {
+                    role: "user".into(),
+                    content: request.user_message.clone(),
+                },
             ],
             temperature: request.temperature,
             max_tokens: request.max_tokens,

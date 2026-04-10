@@ -9,7 +9,7 @@ pub struct HistoryEntry {
     pub command: String,
 }
 
-pub fn last_command(ctx: &ShellContext) -> Result<HistoryEntry> {
+pub fn last_command(ctx: &ShellContext, history_override: Option<&str>) -> Result<HistoryEntry> {
     // Prefer env var set by shell hook (idoit init)
     if let Ok(cmd) = std::env::var("__IDOIT_LAST_CMD") {
         if !cmd.is_empty() {
@@ -17,7 +17,7 @@ pub fn last_command(ctx: &ShellContext) -> Result<HistoryEntry> {
         }
     }
 
-    let path = history_file_path(ctx)?;
+    let path = history_file_path(ctx, history_override)?;
 
     if !path.exists() {
         anyhow::bail!(
@@ -64,15 +64,11 @@ pub fn last_exit_code() -> Option<i32> {
         .and_then(|s| s.parse().ok())
 }
 
-fn history_file_path(ctx: &ShellContext) -> Result<PathBuf> {
-    if let Ok(histfile) = std::env::var("HISTFILE") {
-        return Ok(PathBuf::from(histfile));
-    }
-
+pub fn default_history_path(shell: &str) -> Result<PathBuf> {
     let home =
         dirs::home_dir().ok_or_else(|| anyhow::anyhow!("cannot determine home directory"))?;
 
-    match ctx.shell.as_str() {
+    match shell {
         "zsh" => Ok(home.join(".zsh_history")),
         "fish" => {
             let fish_dir = std::env::var("XDG_DATA_HOME")
@@ -84,6 +80,21 @@ fn history_file_path(ctx: &ShellContext) -> Result<PathBuf> {
     }
 }
 
+pub fn history_file_path(ctx: &ShellContext, history_override: Option<&str>) -> Result<PathBuf> {
+    if let Some(path) = history_override {
+        let trimmed = path.trim();
+        if !trimmed.is_empty() {
+            return Ok(PathBuf::from(trimmed));
+        }
+    }
+
+    if let Ok(histfile) = std::env::var("HISTFILE") {
+        return Ok(PathBuf::from(histfile));
+    }
+
+    default_history_path(&ctx.shell)
+}
+
 fn parse_bash_history(content: &str) -> Option<HistoryEntry> {
     content
         .lines()
@@ -92,7 +103,9 @@ fn parse_bash_history(content: &str) -> Option<HistoryEntry> {
             let trimmed = line.trim();
             !trimmed.is_empty() && !trimmed.starts_with('#')
         })
-        .map(|cmd| HistoryEntry { command: cmd.trim().to_string() })
+        .map(|cmd| HistoryEntry {
+            command: cmd.trim().to_string(),
+        })
 }
 
 fn parse_zsh_history(content: &str) -> Option<HistoryEntry> {
@@ -127,7 +140,10 @@ fn parse_zsh_history(content: &str) -> Option<HistoryEntry> {
         }
     }
 
-    entries.into_iter().next().map(|command| HistoryEntry { command })
+    entries
+        .into_iter()
+        .next()
+        .map(|command| HistoryEntry { command })
 }
 
 fn parse_fish_history(content: &str) -> Option<HistoryEntry> {
@@ -174,8 +190,7 @@ mod tests {
 
     #[test]
     fn test_fish_history() {
-        let content =
-            "- cmd: ls -la\n  when: 1234567890\n- cmd: git status\n  when: 1234567891\n";
+        let content = "- cmd: ls -la\n  when: 1234567890\n- cmd: git status\n  when: 1234567891\n";
         let entry = parse_fish_history(content).unwrap();
         assert_eq!(entry.command, "git status");
     }

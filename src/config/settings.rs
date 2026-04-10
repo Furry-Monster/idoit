@@ -62,6 +62,8 @@ pub struct OpenAiSettings {
     #[serde(default = "default_openai_api_key_env")]
     pub api_key_env: String,
     #[serde(default)]
+    pub api_key: String,
+    #[serde(default)]
     pub base_url: String,
 }
 
@@ -71,6 +73,8 @@ pub struct AnthropicSettings {
     pub model: String,
     #[serde(default = "default_anthropic_api_key_env")]
     pub api_key_env: String,
+    #[serde(default)]
+    pub api_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +83,8 @@ pub struct GeminiSettings {
     pub model: String,
     #[serde(default = "default_gemini_api_key_env")]
     pub api_key_env: String,
+    #[serde(default)]
+    pub api_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,23 +97,53 @@ pub struct OllamaSettings {
 
 // --- defaults ---
 
-fn default_provider() -> String { "openai".into() }
-fn default_timeout() -> u64 { 30 }
-fn default_temperature() -> f64 { 0.1 }
-fn default_max_tokens() -> u32 { 2048 }
-fn default_max_retries() -> u32 { 3 }
+fn default_provider() -> String {
+    "openai".into()
+}
+fn default_timeout() -> u64 {
+    30
+}
+fn default_temperature() -> f64 {
+    0.1
+}
+fn default_max_tokens() -> u32 {
+    2048
+}
+fn default_max_retries() -> u32 {
+    3
+}
 
-fn default_openai_model() -> String { "gpt-4o-mini".into() }
-fn default_openai_api_key_env() -> String { "OPENAI_API_KEY".into() }
-fn default_anthropic_model() -> String { "claude-sonnet-4-20250514".into() }
-fn default_anthropic_api_key_env() -> String { "ANTHROPIC_API_KEY".into() }
-fn default_gemini_model() -> String { "gemini-2.5-flash".into() }
-fn default_gemini_api_key_env() -> String { "GEMINI_API_KEY".into() }
-fn default_ollama_model() -> String { "llama3".into() }
-fn default_ollama_host() -> String { "http://localhost:11434".into() }
+fn default_openai_model() -> String {
+    "gpt-4o-mini".into()
+}
+fn default_openai_api_key_env() -> String {
+    "OPENAI_API_KEY".into()
+}
+fn default_anthropic_model() -> String {
+    "claude-sonnet-4-20250514".into()
+}
+fn default_anthropic_api_key_env() -> String {
+    "ANTHROPIC_API_KEY".into()
+}
+fn default_gemini_model() -> String {
+    "gemini-2.5-flash".into()
+}
+fn default_gemini_api_key_env() -> String {
+    "GEMINI_API_KEY".into()
+}
+fn default_ollama_model() -> String {
+    "llama3".into()
+}
+fn default_ollama_host() -> String {
+    "http://localhost:11434".into()
+}
 
-fn default_true() -> bool { true }
-fn default_cache_ttl() -> u64 { 3600 }
+fn default_true() -> bool {
+    true
+}
+fn default_cache_ttl() -> u64 {
+    3600
+}
 
 // --- Default impls ---
 
@@ -143,6 +179,7 @@ impl Default for OpenAiSettings {
         Self {
             model: default_openai_model(),
             api_key_env: default_openai_api_key_env(),
+            api_key: String::new(),
             base_url: String::new(),
         }
     }
@@ -153,6 +190,7 @@ impl Default for AnthropicSettings {
         Self {
             model: default_anthropic_model(),
             api_key_env: default_anthropic_api_key_env(),
+            api_key: String::new(),
         }
     }
 }
@@ -162,6 +200,7 @@ impl Default for GeminiSettings {
         Self {
             model: default_gemini_model(),
             api_key_env: default_gemini_api_key_env(),
+            api_key: String::new(),
         }
     }
 }
@@ -183,6 +222,8 @@ pub struct BehaviorSettings {
     pub learn_by_default: bool,
     #[serde(default)]
     pub shell: String,
+    #[serde(default)]
+    pub history_path: String,
 }
 
 impl Default for BehaviorSettings {
@@ -191,6 +232,7 @@ impl Default for BehaviorSettings {
             auto_confirm: false,
             learn_by_default: false,
             shell: String::new(),
+            history_path: String::new(),
         }
     }
 }
@@ -205,7 +247,10 @@ pub struct UiSettings {
 
 impl Default for UiSettings {
     fn default() -> Self {
-        Self { color: true, verbose: false }
+        Self {
+            color: true,
+            verbose: false,
+        }
     }
 }
 
@@ -219,7 +264,10 @@ pub struct CacheSettings {
 
 impl Default for CacheSettings {
     fn default() -> Self {
-        Self { enabled: false, ttl_secs: default_cache_ttl() }
+        Self {
+            enabled: false,
+            ttl_secs: default_cache_ttl(),
+        }
     }
 }
 

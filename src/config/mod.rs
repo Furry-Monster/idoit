@@ -16,6 +16,10 @@ pub fn config_path() -> PathBuf {
     config_dir().join("config.toml")
 }
 
+pub fn exists() -> bool {
+    config_path().exists()
+}
+
 pub fn load() -> Result<Settings> {
     let path = config_path();
     if !path.exists() {

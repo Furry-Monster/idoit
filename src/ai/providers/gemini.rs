@@ -78,11 +78,15 @@ impl AiProvider for GeminiProvider {
 
         let body = GenerateRequest {
             system_instruction: Some(SystemInstruction {
-                parts: vec![Part { text: request.system.clone() }],
+                parts: vec![Part {
+                    text: request.system.clone(),
+                }],
             }),
             contents: vec![Content {
                 role: Some("user".into()),
-                parts: vec![Part { text: request.user_message.clone() }],
+                parts: vec![Part {
+                    text: request.user_message.clone(),
+                }],
             }],
             generation_config: GenerationConfig {
                 temperature: request.temperature,
