@@ -38,18 +38,18 @@ async fn run() -> Result<()> {
         return Ok(());
     }
 
-    // idoit setup — interactive config wizard
+    // idoit setup — interactive configuration
     if cli.args.first().map(|s| s.as_str()) == Some("setup") {
-        return commands::config_wizard::run();
+        return commands::setup::run();
     }
 
-    // First launch: no config yet, auto-start setup wizard
+    // First launch: no config yet, run setup
     if !config::exists() {
         println!(
             "  {} first launch detected. Running setup...",
             style("→").cyan()
         );
-        commands::config_wizard::run()?;
+        commands::setup::run()?;
     }
 
     let settings = config::load()?;

@@ -11,7 +11,7 @@ pub fn run() -> Result<()> {
     println!(
         "  {} {}",
         style("idoit").bold().cyan(),
-        style("— setup wizard").dim()
+        style("— setup").dim()
     );
     println!();
 

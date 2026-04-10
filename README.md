@@ -11,7 +11,7 @@
 - 结果细化：`idoit --refine '<补充约束>'`
 - 别名保存：`idoit --save <name> <description...>`
 - 重新执行上次生成命令：`idoit --last`
-- 交互式配置向导：`idoit setup`
+- 交互式 setup：`idoit setup`
 - Shell 初始化脚本：`idoit init bash|zsh|fish`
 
 ## 安装与运行
@@ -37,7 +37,7 @@ idoit --help
 
 ## 快速开始
 
-1) 运行配置向导：
+1) 运行 setup：
 
 ```bash
 idoit setup

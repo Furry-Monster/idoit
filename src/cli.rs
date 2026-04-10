@@ -14,6 +14,7 @@ use clap::Parser;
         idoit --explain 'find . -name \"*.log\" -mtime +7 -delete'\n  \
         idoit --refine \"only in home directory\"\n  \
         idoit init bash\n  \
+        idoit setup\n  \
         idoit            (full-screen TUI)\n  \
         idoit -l         (learn TUI with live preview)"
 )]
