@@ -6,7 +6,10 @@ mod commands;
 mod config;
 mod session;
 mod shell;
+mod tui;
 mod ui;
+
+use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
@@ -86,15 +89,28 @@ async fn run() -> Result<()> {
         return Ok(());
     }
 
+    // Full-screen TUI: plain `idoit` or `idoit -l` (no positional args)
+    let use_tui = !cli.has_prompt()
+        && !cli.fix
+        && !cli.refine
+        && !cli.explain
+        && !cli.last
+        && cli.save.is_none();
+
+    if use_tui {
+        let settings = Arc::new(settings);
+        let client = Arc::new(ai::client::AiClient::from_settings(
+            &settings,
+            cli.provider.as_deref(),
+        )?);
+        let ctx = Arc::new(shell::context::ShellContext::detect(
+            &settings.behavior.shell,
+        ));
+        return tui::run(settings, client, ctx, cli.learn, cli.anyway, cli.dry_run).await;
+    }
+
     // Check for prompt or actionable flags
     if !cli.has_prompt() && !cli.fix && !cli.refine {
-        if cli.learn {
-            ui::output::print_error("--learn requires a prompt or --fix");
-            eprintln!();
-            eprintln!("  Usage: idoit --learn <command or description>");
-            eprintln!("         idoit --learn --fix");
-            std::process::exit(1);
-        }
         if cli.explain {
             ui::output::print_error("--explain requires a command to explain");
             eprintln!();

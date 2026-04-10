@@ -24,4 +24,7 @@ pub struct AiCommandResponse {
     pub confidence: f32,
     #[serde(default)]
     pub teaching: Option<String>,
+    /// Additional command suggestions (TUI / advanced UX)
+    #[serde(default)]
+    pub alternates: Vec<String>,
 }

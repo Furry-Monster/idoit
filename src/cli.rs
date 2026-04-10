@@ -13,7 +13,9 @@ use clap::Parser;
         idoit --learn git rebase\n  \
         idoit --explain 'find . -name \"*.log\" -mtime +7 -delete'\n  \
         idoit --refine \"only in home directory\"\n  \
-        idoit init bash"
+        idoit init bash\n  \
+        idoit            (full-screen TUI)\n  \
+        idoit -l         (learn TUI with live preview)"
 )]
 pub struct Cli {
     /// Natural language description of what you want to do

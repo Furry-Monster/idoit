@@ -255,4 +255,12 @@ mod tests {
         assert!(resp.missing_tools.is_empty());
         assert!(resp.teaching.is_none());
     }
+
+    #[test]
+    fn test_parse_json_with_alternates() {
+        let raw = r#"{"command": "rg foo .", "explanation": "search", "missing_tools": [], "confidence": 0.9, "alternates": ["grep -r foo ."]}"#;
+        let resp = parse_command_response(raw).unwrap();
+        assert_eq!(resp.alternates.len(), 1);
+        assert_eq!(resp.alternates[0], "grep -r foo .");
+    }
 }

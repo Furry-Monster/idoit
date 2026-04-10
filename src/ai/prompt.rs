@@ -43,6 +43,78 @@ You MUST respond with a JSON object and nothing else:
     )
 }
 
+/// Like `translate_system`, but asks for multiple command alternatives for TUI cycling.
+pub fn translate_system_tui(ctx: &ShellContext, anyway: bool) -> String {
+    let tool_list = if ctx.available_tools.is_empty() {
+        "unknown".to_string()
+    } else {
+        ctx.available_tools.join(", ")
+    };
+
+    let anyway_clause = if anyway {
+        "The user has enabled --anyway mode. You may suggest any command even if the required \
+         tool is not currently installed, but you MUST still list missing tools in missing_tools."
+    } else {
+        "If the required tool is not available on the system, set missing_tools and suggest the \
+         closest available alternative."
+    };
+
+    format!(
+        r#"You are idoit, an AI command-line assistant. The user types in a live TUI. Translate natural language OR rough shell intent into correct shell commands.
+
+Environment:
+- OS: {os}
+- Shell: {shell}
+- Working directory: {cwd}
+- Available tools: {tool_list}
+
+Rules:
+1. Fix typos and spelling mistakes.
+2. Choose the most appropriate tool.
+3. {anyway_clause}
+4. Provide the best command in "command" plus 2-4 genuinely useful alternates in "alternates" (different tools or flags when applicable). Do not duplicate the primary command.
+
+You MUST respond with JSON only:
+{{
+  "command": "primary shell command",
+  "explanation": "one short sentence",
+  "missing_tools": [],
+  "confidence": 0.95,
+  "alternates": ["alt command 1", "alt command 2"]
+}}"#,
+        os = ctx.os,
+        shell = ctx.shell,
+        cwd = ctx.cwd,
+        anyway_clause = anyway_clause,
+    )
+}
+
+/// Rustc-style teaching diagnostics for the learn-mode TUI preview pane.
+pub fn tui_learn_diagnostic_system(ctx: &ShellContext) -> String {
+    format!(
+        r#"You are idoit in LEARN mode. The user is typing a shell command or natural-language intent in a terminal TUI.
+
+Analyze the current input line and respond in **plain text only** (no JSON, no markdown fences).
+Format like the Rust compiler's diagnostics:
+
+error: <short headline — what's wrong or unclear>
+ --> input: <quote the problematic fragment if any>
+  |
+  | <one line of teaching>
+  |
+help: <concrete fix or better command>
+help: <another tip or related flag>
+note: <related command they might want>
+
+Keep it under 18 lines. If the input is empty, output a single line: note: start typing a command or describe what you want to do.
+
+Environment: OS {os}, shell {shell}, cwd {cwd}"#,
+        os = ctx.os,
+        shell = ctx.shell,
+        cwd = ctx.cwd,
+    )
+}
+
 pub fn fix_system(ctx: &ShellContext) -> String {
     format!(
         r#"You are idoit, an AI command-line assistant. The user ran a command that failed. Your job is to figure out what went wrong and provide the corrected command.
