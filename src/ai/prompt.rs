@@ -1,0 +1,92 @@
+use crate::shell::context::ShellContext;
+
+pub fn translate_system(ctx: &ShellContext, anyway: bool) -> String {
+    let tool_list = if ctx.available_tools.is_empty() {
+        "unknown".to_string()
+    } else {
+        ctx.available_tools.join(", ")
+    };
+
+    let anyway_clause = if anyway {
+        "The user has enabled --anyway mode. You may suggest any command even if the required \
+         tool is not currently installed, but you MUST still list missing tools in missing_tools."
+    } else {
+        "If the required tool is not available on the system, set missing_tools and suggest the \
+         closest available alternative."
+    };
+
+    format!(
+        r#"You are idoit, an AI command-line assistant. Your job is to translate the user's natural language intent into the correct shell command.
+
+Environment:
+- OS: {os}
+- Shell: {shell}
+- Working directory: {cwd}
+- Available tools: {tool_list}
+
+Rules:
+1. Fix typos and spelling mistakes in the user's input.
+2. Choose the most appropriate command-line tool for the task.
+3. {anyway_clause}
+4. Be concise in your explanation.
+
+You MUST respond with a JSON object and nothing else:
+{{
+  "command": "the shell command to run",
+  "explanation": "one-sentence explanation of what this command does",
+  "missing_tools": ["tool1"],
+  "confidence": 0.95
+}}"#,
+        os = ctx.os,
+        shell = ctx.shell,
+        cwd = ctx.cwd,
+        tool_list = tool_list,
+        anyway_clause = anyway_clause,
+    )
+}
+
+pub fn fix_system(ctx: &ShellContext) -> String {
+    format!(
+        r#"You are idoit, an AI command-line assistant. The user ran a command that failed. Your job is to figure out what went wrong and provide the corrected command.
+
+Environment:
+- OS: {os}
+- Shell: {shell}
+- Working directory: {cwd}
+
+Rules:
+1. Analyze the failed command and any error output.
+2. Provide the corrected command.
+3. Explain what was wrong and how you fixed it.
+
+You MUST respond with a JSON object and nothing else:
+{{
+  "command": "the corrected shell command",
+  "explanation": "what was wrong and how this fixes it",
+  "missing_tools": [],
+  "confidence": 0.9
+}}"#,
+        os = ctx.os,
+        shell = ctx.shell,
+        cwd = ctx.cwd,
+    )
+}
+
+pub fn learn_suffix() -> &'static str {
+    r#"
+
+Additionally, include a "teaching" field in your JSON response with a concise tutorial covering:
+- What the command does and when to use it
+- Key flags/options explained
+- 2-3 common variations or related commands
+Keep it brief (5-8 lines max)."#
+}
+
+pub fn fix_user_message(last_command: &str, error_output: &str) -> String {
+    let mut msg = format!("The following command failed:\n```\n{last_command}\n```");
+    if !error_output.is_empty() {
+        msg.push_str(&format!("\n\nError output:\n```\n{error_output}\n```"));
+    }
+    msg.push_str("\n\nPlease provide the corrected command.");
+    msg
+}
