@@ -27,7 +27,11 @@ pub fn run(cmd: Option<&ConfigCommand>) -> Result<()> {
             let joined = value.join(" ");
             apply_set(&mut settings, key, &joined)?;
             config::save(&settings)?;
-            println!("Updated {}. Saved to {}", key, config::config_path().display());
+            println!(
+                "Updated {}. Saved to {}",
+                key,
+                config::config_path().display()
+            );
             Ok(())
         }
     }
@@ -40,9 +44,9 @@ fn parse_provider(s: &str) -> Result<AiProviderId> {
         "gemini" => Ok(AiProviderId::Gemini),
         "deepseek" => Ok(AiProviderId::DeepSeek),
         "ollama" => Ok(AiProviderId::Ollama),
-        _ => bail!(
-            "unknown provider {s:?} (expected: openai, anthropic, gemini, deepseek, ollama)"
-        ),
+        _ => {
+            bail!("unknown provider {s:?} (expected: openai, anthropic, gemini, deepseek, ollama)")
+        }
     }
 }
 
@@ -96,24 +100,28 @@ fn apply_set(settings: &mut Settings, key: &str, val: &str) -> Result<()> {
     match norm_key(key).as_str() {
         "ai.provider" => settings.ai.provider = parse_provider(val)?,
         "ai.timeout_secs" => {
-            settings.ai.timeout_secs = val.trim().parse().with_context(|| {
-                format!("invalid u64 for ai.timeout_secs: {val:?}")
-            })?;
+            settings.ai.timeout_secs = val
+                .trim()
+                .parse()
+                .with_context(|| format!("invalid u64 for ai.timeout_secs: {val:?}"))?;
         }
         "ai.temperature" => {
-            settings.ai.temperature = val.trim().parse().with_context(|| {
-                format!("invalid float for ai.temperature: {val:?}")
-            })?;
+            settings.ai.temperature = val
+                .trim()
+                .parse()
+                .with_context(|| format!("invalid float for ai.temperature: {val:?}"))?;
         }
         "ai.max_tokens" => {
-            settings.ai.max_tokens = val.trim().parse().with_context(|| {
-                format!("invalid u32 for ai.max_tokens: {val:?}")
-            })?;
+            settings.ai.max_tokens = val
+                .trim()
+                .parse()
+                .with_context(|| format!("invalid u32 for ai.max_tokens: {val:?}"))?;
         }
         "ai.max_retries" => {
-            settings.ai.max_retries = val.trim().parse().with_context(|| {
-                format!("invalid u32 for ai.max_retries: {val:?}")
-            })?;
+            settings.ai.max_retries = val
+                .trim()
+                .parse()
+                .with_context(|| format!("invalid u32 for ai.max_retries: {val:?}"))?;
         }
         "ai.openai.model" => settings.ai.openai.model = val.to_string(),
         "ai.openai.api_key" => settings.ai.openai.api_key = val.to_string(),
@@ -138,9 +146,10 @@ fn apply_set(settings: &mut Settings, key: &str, val: &str) -> Result<()> {
         "ui.color" => settings.ui.color = parse_bool(val)?,
         "ui.verbose" => settings.ui.verbose = parse_bool(val)?,
         "ui.tui_debounce_ms" => {
-            settings.ui.tui_debounce_ms = val.trim().parse().with_context(|| {
-                format!("invalid u64 for ui.tui_debounce_ms: {val:?}")
-            })?;
+            settings.ui.tui_debounce_ms = val
+                .trim()
+                .parse()
+                .with_context(|| format!("invalid u64 for ui.tui_debounce_ms: {val:?}"))?;
         }
         _ => bail!("unknown key — run `idoit config keys` for recognized dot-paths"),
     }

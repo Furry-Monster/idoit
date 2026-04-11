@@ -114,12 +114,10 @@ fn read_history_content(path: &Path, limit: usize) -> Result<(String, bool)> {
     let mut file = File::open(path)
         .with_context(|| format!("failed to open shell history at {}", path.display()))?;
     let take = budget.min(len);
-    file
-        .seek(SeekFrom::Start((len - take) as u64))
+    file.seek(SeekFrom::Start((len - take) as u64))
         .with_context(|| format!("seek shell history at {}", path.display()))?;
     let mut buf = vec![0u8; take];
-    file
-        .read_exact(&mut buf)
+    file.read_exact(&mut buf)
         .with_context(|| format!("read shell history tail at {}", path.display()))?;
     let mut text = String::from_utf8_lossy(&buf).into_owned();
     // Drop first line: may start mid-UTF-8 sequence (lossy) or mid-command.

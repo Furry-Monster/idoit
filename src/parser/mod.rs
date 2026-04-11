@@ -187,9 +187,12 @@ mod tests {
 
     #[test]
     fn parse_config_set_provider() {
-        let a = Args::try_parse_from(["idoit", "config", "set", "ai.provider", "deepseek"]).unwrap();
+        let a =
+            Args::try_parse_from(["idoit", "config", "set", "ai.provider", "deepseek"]).unwrap();
         match &a.command {
-            Some(Commands::Config { cmd: Some(ConfigCommand::Set { key, value }) }) => {
+            Some(Commands::Config {
+                cmd: Some(ConfigCommand::Set { key, value }),
+            }) => {
                 assert_eq!(key, "ai.provider");
                 assert_eq!(value, &["deepseek".to_string()]);
             }

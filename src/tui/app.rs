@@ -152,11 +152,7 @@ impl App {
             return;
         }
         self.diagnostic = text;
-        if done {
-            self.diag_pending = false;
-        } else {
-            self.diag_pending = true;
-        }
+        self.diag_pending = !done;
     }
 
     pub fn apply_diag_err(&mut self, gen: u64, err: String) {

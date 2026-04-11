@@ -85,6 +85,7 @@ fn bump_seq(seq: &AtomicU64) -> u64 {
 }
 
 /// Streams learn-mode diagnostic text with ~50ms UI batching.
+#[allow(clippy::too_many_arguments)]
 async fn run_learn_diag_stream(
     client: Arc<AiClient>,
     settings: Arc<Settings>,
