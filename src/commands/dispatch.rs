@@ -11,7 +11,7 @@ use crate::parser::{Args, Commands};
 use crate::shell::context::ShellContext;
 
 use super::{
-    explain, fix, init, last, macro_cmd, prompt_cmd, refine, run, setup, show_config, tui_cmd,
+    config_cmd, explain, fix, init, last, macro_cmd, prompt_cmd, refine, run, setup, tui_cmd,
 };
 
 pub async fn run(args: Args) -> Result<()> {
@@ -23,6 +23,9 @@ pub async fn run(args: Args) -> Result<()> {
         }
         Some(Commands::Setup) => {
             return setup::run();
+        }
+        Some(Commands::Config { cmd }) => {
+            return config_cmd::run(cmd.as_ref());
         }
         _ => {}
     }
@@ -50,8 +53,9 @@ pub async fn run(args: Args) -> Result<()> {
             println!();
             Ok(())
         }
-        Some(Commands::Init { .. }) | Some(Commands::Setup) => unreachable!("handled above"),
-        Some(Commands::Config) => show_config::run(&settings),
+        Some(Commands::Init { .. }) | Some(Commands::Setup) | Some(Commands::Config { .. }) => {
+            unreachable!("handled above")
+        }
         Some(Commands::Last) => last::run(&settings, g.yes).await,
         Some(Commands::Macro { name, body }) => macro_cmd::run(&name, &body),
         Some(Commands::Tui { learn }) => {

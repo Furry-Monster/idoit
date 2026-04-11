@@ -15,7 +15,7 @@ use crate::config::settings::AiProviderId;
         Routing (subcommands):\n  \
         idoit init bash|zsh|fish     shell integration script\n  \
         idoit setup                  first-time / reconfigure\n  \
-        idoit config                 show settings\n  \
+        idoit config [show|get|set|keys]  view or edit ~/.config/idoit/config.toml\n  \
         idoit last                   re-run last generated command\n  \
         idoit macro NAME …           save @NAME macro\n  \
         idoit tui [-l]               full-screen TUI (--learn)\n  \
@@ -53,7 +53,7 @@ pub struct GlobalOpts {
     #[arg(short, long, global = true)]
     pub yes: bool,
 
-    /// Override AI provider (openai, anthropic, gemini, ollama)
+    /// Override AI provider (openai, anthropic, gemini, deepseek, ollama)
     #[arg(short, long, global = true, value_enum)]
     pub provider: Option<AiProviderId>,
 }
@@ -64,8 +64,11 @@ pub enum Commands {
     Init { shell: String },
     /// Interactive configuration wizard
     Setup,
-    /// Show current configuration
-    Config,
+    /// View or edit configuration file (~/.config/idoit/config.toml)
+    Config {
+        #[command(subcommand)]
+        cmd: Option<ConfigCommand>,
+    },
     /// Re-execute the last idoit-generated command
     Last,
     /// Save macro @NAME from the remaining words (use @NAME in prompts)
@@ -99,6 +102,27 @@ pub enum Commands {
     /// Natural language → command (any words not matching a built-in subcommand)
     #[command(external_subcommand)]
     Prompt(Vec<OsString>),
+}
+
+/// Subcommands for `idoit config`.
+#[derive(Subcommand, Debug, Clone, PartialEq, Eq)]
+pub enum ConfigCommand {
+    /// Print full configuration as TOML (default when no subcommand)
+    Show,
+    /// List recognized dot-keys for get/set
+    Keys,
+    /// Print one setting (e.g. ai.provider)
+    Get {
+        /// Dot-path key (see `idoit config keys`)
+        key: String,
+    },
+    /// Set one setting and save (value is all remaining words)
+    Set {
+        /// Dot-path key (see `idoit config keys`)
+        key: String,
+        #[arg(trailing_var_arg = true, num_args = 1.., value_name = "VALUE")]
+        value: Vec<String>,
+    },
 }
 
 impl Args {
@@ -150,6 +174,27 @@ mod tests {
         assert!(a.global.dry_run);
         assert!(a.global.yes);
         assert!(matches!(a.command, Some(Commands::Fix)));
+    }
+
+    #[test]
+    fn parse_config_show_default() {
+        let a = Args::try_parse_from(["idoit", "config"]).unwrap();
+        match &a.command {
+            Some(Commands::Config { cmd }) => assert!(cmd.is_none()),
+            _ => panic!("expected Config"),
+        }
+    }
+
+    #[test]
+    fn parse_config_set_provider() {
+        let a = Args::try_parse_from(["idoit", "config", "set", "ai.provider", "deepseek"]).unwrap();
+        match &a.command {
+            Some(Commands::Config { cmd: Some(ConfigCommand::Set { key, value }) }) => {
+                assert_eq!(key, "ai.provider");
+                assert_eq!(value, &["deepseek".to_string()]);
+            }
+            _ => panic!("expected Config Set"),
+        }
     }
 
     #[test]

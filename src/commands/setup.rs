@@ -15,11 +15,12 @@ pub fn run() -> Result<()> {
     );
     println!();
 
-    let provider_labels = &["openai", "anthropic", "gemini", "ollama"];
+    let provider_labels = &["openai", "anthropic", "gemini", "deepseek", "ollama"];
     let provider_ids = [
         AiProviderId::OpenAi,
         AiProviderId::Anthropic,
         AiProviderId::Gemini,
+        AiProviderId::DeepSeek,
         AiProviderId::Ollama,
     ];
     let detected_shell = detect_shell();
@@ -81,6 +82,25 @@ pub fn run() -> Result<()> {
                 .allow_empty(true)
                 .interact_text()?;
             settings.ai.gemini.api_key = api_key;
+            println!(
+                "  {} set {} in your shell environment",
+                style("→").cyan(),
+                style(&api_key_env).yellow()
+            );
+            println!(
+                "  {} default model: {}",
+                style("→").cyan(),
+                style(&model).dim()
+            );
+        }
+        AiProviderId::DeepSeek => {
+            let api_key_env = settings.ai.deepseek.api_key_env.clone();
+            let model = settings.ai.deepseek.model.clone();
+            let api_key: String = Input::new()
+                .with_prompt("  DeepSeek API key")
+                .allow_empty(true)
+                .interact_text()?;
+            settings.ai.deepseek.api_key = api_key;
             println!(
                 "  {} set {} in your shell environment",
                 style("→").cyan(),

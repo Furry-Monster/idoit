@@ -8,6 +8,7 @@ use crate::config::settings::{AiProviderId, Settings};
 
 use super::provider::AiProvider;
 use super::providers::anthropic::AnthropicProvider;
+use super::providers::deepseek::DeepSeekProvider;
 use super::providers::gemini::GeminiProvider;
 use super::providers::ollama::OllamaProvider;
 use super::providers::openai::OpenAiProvider;
@@ -26,6 +27,7 @@ enum AiClientInner {
     OpenAi(OpenAiProvider),
     Anthropic(AnthropicProvider),
     Gemini(GeminiProvider),
+    DeepSeek(DeepSeekProvider),
     Ollama(OllamaProvider),
 }
 
@@ -66,6 +68,16 @@ impl AiClient {
                     resolve_api_key(&settings.ai.gemini.api_key, &settings.ai.gemini.api_key_env)?;
                 AiClientInner::Gemini(GeminiProvider::new(api_key, timeout))
             }
+            AiProviderId::DeepSeek => {
+                let cfg = &settings.ai.deepseek;
+                let api_key = resolve_api_key(&cfg.api_key, &cfg.api_key_env)?;
+                let base_url = if cfg.base_url.trim().is_empty() {
+                    None
+                } else {
+                    Some(cfg.base_url.clone())
+                };
+                AiClientInner::DeepSeek(DeepSeekProvider::new(api_key, base_url, timeout))
+            }
             AiProviderId::Ollama => AiClientInner::Ollama(OllamaProvider::new(
                 settings.ai.ollama.host.clone(),
                 timeout,
@@ -84,6 +96,7 @@ impl AiClient {
             AiClientInner::OpenAi(p) => p.name(),
             AiClientInner::Anthropic(p) => p.name(),
             AiClientInner::Gemini(p) => p.name(),
+            AiClientInner::DeepSeek(p) => p.name(),
             AiClientInner::Ollama(p) => p.name(),
         }
     }
@@ -97,6 +110,7 @@ impl AiClient {
             AiClientInner::OpenAi(p) => p.complete(request, cancel).await,
             AiClientInner::Anthropic(p) => p.complete(request, cancel).await,
             AiClientInner::Gemini(p) => p.complete(request, cancel).await,
+            AiClientInner::DeepSeek(p) => p.complete(request, cancel).await,
             AiClientInner::Ollama(p) => p.complete(request, cancel).await,
         }
     }
@@ -205,6 +219,10 @@ impl AiClient {
                     .await?
             }
             AiClientInner::Gemini(p) => {
+                p.stream_complete(&request, cancel, MAX_FREEFORM_STREAM_BYTES, &mut on_delta)
+                    .await?
+            }
+            AiClientInner::DeepSeek(p) => {
                 p.stream_complete(&request, cancel, MAX_FREEFORM_STREAM_BYTES, &mut on_delta)
                     .await?
             }

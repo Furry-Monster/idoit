@@ -9,6 +9,7 @@ pub enum AiProviderId {
     OpenAi,
     Anthropic,
     Gemini,
+    DeepSeek,
     Ollama,
 }
 
@@ -18,6 +19,7 @@ impl AiProviderId {
             Self::OpenAi => "openai",
             Self::Anthropic => "anthropic",
             Self::Gemini => "gemini",
+            Self::DeepSeek => "deepseek",
             Self::Ollama => "ollama",
         }
     }
@@ -58,6 +60,8 @@ pub struct AiSettings {
     #[serde(default)]
     pub gemini: GeminiSettings,
     #[serde(default)]
+    pub deepseek: DeepSeekSettings,
+    #[serde(default)]
     pub ollama: OllamaSettings,
 }
 
@@ -67,6 +71,7 @@ impl AiSettings {
         match self.provider {
             AiProviderId::Anthropic => &self.anthropic.model,
             AiProviderId::Gemini => &self.gemini.model,
+            AiProviderId::DeepSeek => &self.deepseek.model,
             AiProviderId::Ollama => &self.ollama.model,
             AiProviderId::OpenAi => &self.openai.model,
         }
@@ -77,6 +82,7 @@ impl AiSettings {
         match self.provider {
             AiProviderId::Anthropic => &self.anthropic.api_key_env,
             AiProviderId::Gemini => &self.gemini.api_key_env,
+            AiProviderId::DeepSeek => &self.deepseek.api_key_env,
             AiProviderId::OpenAi | AiProviderId::Ollama => &self.openai.api_key_env,
         }
     }
@@ -112,6 +118,19 @@ pub struct GeminiSettings {
     pub api_key_env: String,
     #[serde(default)]
     pub api_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeepSeekSettings {
+    #[serde(default = "default_deepseek_model")]
+    pub model: String,
+    #[serde(default = "default_deepseek_api_key_env")]
+    pub api_key_env: String,
+    #[serde(default)]
+    pub api_key: String,
+    /// Empty = official `https://api.deepseek.com/v1` (OpenAI-compatible).
+    #[serde(default)]
+    pub base_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,6 +174,12 @@ fn default_gemini_model() -> String {
 fn default_gemini_api_key_env() -> String {
     "GEMINI_API_KEY".into()
 }
+fn default_deepseek_model() -> String {
+    "deepseek-chat".into()
+}
+fn default_deepseek_api_key_env() -> String {
+    "DEEPSEEK_API_KEY".into()
+}
 fn default_ollama_model() -> String {
     "llama3".into()
 }
@@ -179,7 +204,19 @@ impl Default for AiSettings {
             openai: OpenAiSettings::default(),
             anthropic: AnthropicSettings::default(),
             gemini: GeminiSettings::default(),
+            deepseek: DeepSeekSettings::default(),
             ollama: OllamaSettings::default(),
+        }
+    }
+}
+
+impl Default for DeepSeekSettings {
+    fn default() -> Self {
+        Self {
+            model: default_deepseek_model(),
+            api_key_env: default_deepseek_api_key_env(),
+            api_key: String::new(),
+            base_url: String::new(),
         }
     }
 }
@@ -272,6 +309,7 @@ mod tests {
         assert_eq!(s.ai.openai.model, "gpt-4o-mini");
         assert_eq!(s.ai.anthropic.model, "claude-sonnet-4-20250514");
         assert_eq!(s.ai.gemini.model, "gemini-2.5-flash");
+        assert_eq!(s.ai.deepseek.model, "deepseek-chat");
         assert_eq!(s.ai.ollama.model, "llama3");
         assert_eq!(s.ai.timeout_secs, 30);
         assert!((s.ai.temperature - 0.1).abs() < f64::EPSILON);
@@ -290,6 +328,9 @@ mod tests {
         s.ai.provider = AiProviderId::Anthropic;
         assert_eq!(s.ai.active_model(), "claude-sonnet-4-20250514");
 
+        s.ai.provider = AiProviderId::DeepSeek;
+        assert_eq!(s.ai.active_model(), "deepseek-chat");
+
         s.ai.provider = AiProviderId::Ollama;
         assert_eq!(s.ai.active_model(), "llama3");
     }
@@ -304,6 +345,9 @@ mod tests {
 
         s.ai.provider = AiProviderId::Anthropic;
         assert_eq!(s.ai.active_api_key_env(), "ANTHROPIC_API_KEY");
+
+        s.ai.provider = AiProviderId::DeepSeek;
+        assert_eq!(s.ai.active_api_key_env(), "DEEPSEEK_API_KEY");
     }
 
     #[test]
@@ -362,6 +406,22 @@ model = "codellama"
         assert_eq!(s.ai.provider, s2.ai.provider);
         assert_eq!(s.ai.openai.model, s2.ai.openai.model);
         assert_eq!(s.ai.gemini.model, s2.ai.gemini.model);
+        assert_eq!(s.ai.deepseek.model, s2.ai.deepseek.model);
+    }
+
+    #[test]
+    fn test_parse_deepseek_config() {
+        let toml_str = r#"
+[ai]
+provider = "deepseek"
+
+[ai.deepseek]
+model = "deepseek-reasoner"
+"#;
+        let s: Settings = toml::from_str(toml_str).unwrap();
+        assert_eq!(s.ai.provider, AiProviderId::DeepSeek);
+        assert_eq!(s.ai.deepseek.model, "deepseek-reasoner");
+        assert_eq!(s.ai.active_model(), "deepseek-reasoner");
     }
 
     #[test]
