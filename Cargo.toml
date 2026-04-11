@@ -1,6 +1,6 @@
 [package]
 name = "idoit"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "AI-powered command line simplifier — do it!"
 license = "MIT"
