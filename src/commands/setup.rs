@@ -4,7 +4,7 @@ use dialoguer::{Confirm, Input, Select};
 
 use crate::config;
 use crate::config::settings::{AiProviderId, Settings};
-use crate::shell::history;
+use crate::shell::{history, rc};
 
 pub fn run() -> Result<()> {
     println!();
@@ -134,6 +134,38 @@ pub fn run() -> Result<()> {
         style("✓").green().bold(),
         style(config::config_path().display()).dim()
     );
+
+    let shell_name = shells[shell_idx];
+    if let Some(rc_path) = rc::rc_path(shell_name) {
+        let prompt = format!(
+            "  Add idoit shell hooks to {}?",
+            rc_path.display()
+        );
+        if Confirm::new().with_prompt(prompt).default(true).interact()? {
+            match rc::apply(shell_name) {
+                Ok(p) => {
+                    println!(
+                        "  {} updated {}",
+                        style("✓").green().bold(),
+                        style(p.display()).dim()
+                    );
+                    println!(
+                        "  {} open a new terminal or run: {}",
+                        style("→").cyan(),
+                        style(format!("source {}", p.display())).yellow()
+                    );
+                }
+                Err(e) => {
+                    eprintln!(
+                        "  {} could not update rc file: {}",
+                        style("!").yellow(),
+                        e
+                    );
+                }
+            }
+        }
+    }
+
     println!();
 
     Ok(())
