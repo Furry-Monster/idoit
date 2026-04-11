@@ -3,6 +3,11 @@ name = "idoit"
 version = "0.2.0"
 edition = "2021"
 description = "AI-powered command line simplifier — do it!"
+license = "MIT"
+repository = "https://github.com/Furry-Monster/idoit"
+readme = "README.md"
+keywords = ["cli", "ai", "shell", "llm", "natural-language"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
