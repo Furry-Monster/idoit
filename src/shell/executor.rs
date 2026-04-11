@@ -11,17 +11,41 @@ pub struct ExecutionResult {
     pub success: bool,
 }
 
-pub fn execute(ctx: &ShellContext, command: &str) -> Result<ExecutionResult> {
-    let shell = ctx.shell_path();
+fn shell_command(shell_exe: &str, script: &str) -> Command {
+    let mut cmd = Command::new(shell_exe);
+    #[cfg(windows)]
+    {
+        let lower = shell_exe.to_ascii_lowercase();
+        if lower.ends_with("cmd.exe") || lower == "cmd" {
+            cmd.arg("/c").arg(script);
+        } else if lower.contains("powershell.exe")
+            || lower.contains("\\pwsh.exe")
+            || lower.ends_with("pwsh.exe")
+            || lower == "pwsh"
+            || lower == "powershell"
+        {
+            cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
+        } else {
+            cmd.arg("-c").arg(script);
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        cmd.arg("-c").arg(script);
+    }
+    cmd
+}
 
-    let mut child = Command::new(shell)
-        .arg("-c")
-        .arg(command)
+pub fn execute(ctx: &ShellContext, command: &str) -> Result<ExecutionResult> {
+    let shell = ctx.shell_executable();
+    let shell_ref = shell.as_ref();
+
+    let mut child = shell_command(shell_ref, command)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .stdin(Stdio::inherit())
         .spawn()
-        .with_context(|| format!("failed to spawn {shell}"))?;
+        .with_context(|| format!("failed to spawn {shell_ref}"))?;
 
     let status = child.wait().with_context(|| "command execution failed")?;
     let exit_code = status.code().unwrap_or(1);
@@ -34,13 +58,12 @@ pub fn execute(ctx: &ShellContext, command: &str) -> Result<ExecutionResult> {
 
 #[allow(dead_code)]
 pub fn execute_capture(ctx: &ShellContext, command: &str) -> Result<(String, String, i32)> {
-    let shell = ctx.shell_path();
+    let shell = ctx.shell_executable();
+    let shell_ref = shell.as_ref();
 
-    let output = Command::new(shell)
-        .arg("-c")
-        .arg(command)
+    let output = shell_command(shell_ref, command)
         .output()
-        .with_context(|| format!("failed to spawn {shell}"))?;
+        .with_context(|| format!("failed to spawn {shell_ref}"))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -49,11 +72,12 @@ pub fn execute_capture(ctx: &ShellContext, command: &str) -> Result<(String, Str
     Ok((stdout, stderr, code))
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests {
     use super::execute_capture;
     use crate::shell::context::ShellContext;
 
+    #[cfg(unix)]
     #[test]
     fn execute_capture_runs_shell_command() {
         let ctx = ShellContext {
@@ -62,6 +86,21 @@ mod tests {
             cwd: "/".into(),
             available_tools: vec![],
             home: "/".into(),
+        };
+        let (out, err, code) = execute_capture(&ctx, "echo idoit_test_marker").unwrap();
+        assert_eq!(code, 0, "stderr={err}");
+        assert!(out.contains("idoit_test_marker"), "out={out}");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn execute_capture_runs_cmd() {
+        let ctx = ShellContext {
+            os: "windows".into(),
+            shell: "cmd".into(),
+            cwd: "C:\\".into(),
+            available_tools: vec![],
+            home: "C:\\".into(),
         };
         let (out, err, code) = execute_capture(&ctx, "echo idoit_test_marker").unwrap();
         assert_eq!(code, 0, "stderr={err}");

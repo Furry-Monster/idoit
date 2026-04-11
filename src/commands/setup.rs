@@ -4,7 +4,7 @@ use dialoguer::{Confirm, Input, Select};
 
 use crate::config;
 use crate::config::settings::{AiProviderId, Settings};
-use crate::shell::{history, rc};
+use crate::shell::{context, history, rc};
 
 pub fn run() -> Result<()> {
     println!();
@@ -188,12 +188,29 @@ pub fn run() -> Result<()> {
     Ok(())
 }
 
-fn shell_basename_from_path(path: &str) -> String {
-    path.rsplit('/').next().unwrap_or("bash").to_string()
-}
-
 fn detect_shell() -> String {
-    shell_basename_from_path(&std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string()))
+    #[cfg(windows)]
+    {
+        if let Ok(s) = std::env::var("SHELL") {
+            let b = context::shell_basename_from_path(&s);
+            if !b.is_empty() {
+                return b;
+            }
+        }
+        let b = std::env::var("ComSpec")
+            .map(|p| context::shell_basename_from_path(&p))
+            .unwrap_or_default();
+        if !b.is_empty() {
+            return b;
+        }
+        "cmd.exe".into()
+    }
+    #[cfg(not(windows))]
+    {
+        context::shell_basename_from_path(
+            &std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string()),
+        )
+    }
 }
 
 fn choose_history_path(shell: &str) -> Result<String> {
@@ -236,12 +253,16 @@ fn choose_history_path(shell: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::shell_basename_from_path;
+    use crate::shell::context::shell_basename_from_path;
 
     #[test]
     fn shell_basename_from_login_paths() {
         assert_eq!(shell_basename_from_path("/usr/bin/zsh"), "zsh");
         assert_eq!(shell_basename_from_path("/bin/bash"), "bash");
+        assert_eq!(
+            shell_basename_from_path(r"C:\Windows\System32\cmd.exe"),
+            "cmd.exe"
+        );
     }
 
     #[test]

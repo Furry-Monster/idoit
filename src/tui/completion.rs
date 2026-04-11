@@ -125,7 +125,22 @@ fn is_executable(path: &PathBuf) -> bool {
         .unwrap_or(false)
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+fn is_executable(path: &PathBuf) -> bool {
+    if !path.is_file() {
+        return false;
+    }
+    let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
+        return false;
+    };
+    let dotted = format!(".{}", ext.to_ascii_lowercase());
+    let pathext = env::var("PATHEXT").unwrap_or_else(|_| ".EXE;.CMD;.BAT;.COM".into());
+    env::split_paths(&pathext)
+        .filter_map(|p| p.to_str())
+        .any(|pe| pe.eq_ignore_ascii_case(&dotted))
+}
+
+#[cfg(all(not(unix), not(windows)))]
 fn is_executable(_path: &PathBuf) -> bool {
     true
 }
