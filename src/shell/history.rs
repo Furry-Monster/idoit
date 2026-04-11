@@ -1,4 +1,6 @@
-use std::path::PathBuf;
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
@@ -87,6 +89,85 @@ pub fn default_history_path(shell: &str) -> Result<PathBuf> {
     }
 }
 
+/// Byte budget for tail reads: enough for `limit` long lines without scanning multi‑MB files.
+fn history_tail_byte_budget(limit: usize) -> usize {
+    const MIN: usize = 256 * 1024;
+    const MAX: usize = 2 * 1024 * 1024;
+    limit.saturating_mul(16 * 1024).clamp(MIN, MAX)
+}
+
+/// Returns `(content, from_tail)` where `from_tail` means the first line may be incomplete
+/// (caller may need to strip zsh/fish record prefixes).
+fn read_history_content(path: &Path, limit: usize) -> Result<(String, bool)> {
+    let meta = std::fs::metadata(path).with_context(|| format!("stat {}", path.display()))?;
+    let len = meta.len() as usize;
+    if len == 0 {
+        return Ok((String::new(), false));
+    }
+    let budget = history_tail_byte_budget(limit);
+    if len <= budget {
+        let raw = std::fs::read(path)
+            .with_context(|| format!("failed to read shell history at {}", path.display()))?;
+        return Ok((String::from_utf8_lossy(&raw).into_owned(), false));
+    }
+
+    let mut file = File::open(path)
+        .with_context(|| format!("failed to open shell history at {}", path.display()))?;
+    let take = budget.min(len);
+    file
+        .seek(SeekFrom::Start((len - take) as u64))
+        .with_context(|| format!("seek shell history at {}", path.display()))?;
+    let mut buf = vec![0u8; take];
+    file
+        .read_exact(&mut buf)
+        .with_context(|| format!("read shell history tail at {}", path.display()))?;
+    let mut text = String::from_utf8_lossy(&buf).into_owned();
+    // Drop first line: may start mid-UTF-8 sequence (lossy) or mid-command.
+    if let Some(p) = text.find('\n') {
+        text.drain(..=p);
+    }
+    Ok((text, true))
+}
+
+/// After a binary tail cut, zsh may start on a continuation line; skip until a header.
+fn strip_incomplete_zsh_prefix(s: &str) -> String {
+    let lines: Vec<&str> = s.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        if lines[i].trim().is_empty() {
+            i += 1;
+            continue;
+        }
+        let line = lines[i];
+        let is_header =
+            line.starts_with(": ") || (!line.starts_with(' ') && !line.starts_with('\t'));
+        if is_header {
+            break;
+        }
+        i += 1;
+    }
+    if i == 0 {
+        return s.to_string();
+    }
+    lines[i..].join("\n")
+}
+
+/// Fish history entries start with `- cmd:`; tail cuts may leave a leading `when:` line.
+fn strip_incomplete_fish_prefix(s: &str) -> String {
+    let lines: Vec<&str> = s.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        if lines[i].trim_start().starts_with("- cmd:") {
+            break;
+        }
+        i += 1;
+    }
+    if i == 0 {
+        return s.to_string();
+    }
+    lines[i..].join("\n")
+}
+
 /// Recent commands from the on-disk shell history file, oldest-first within the window.
 pub fn recent_shell_command_lines(
     ctx: &ShellContext,
@@ -97,15 +178,34 @@ pub fn recent_shell_command_lines(
     if !path.exists() {
         return Ok(Vec::new());
     }
-    let raw = std::fs::read(&path)
-        .with_context(|| format!("failed to read shell history at {}", path.display()))?;
-    let content = String::from_utf8_lossy(&raw);
+
     let shell = ctx.shell.as_str();
+    let (mut content, from_tail) = read_history_content(&path, limit)?;
+    if from_tail {
+        content = match shell {
+            "fish" => strip_incomplete_fish_prefix(&content),
+            "zsh" => strip_incomplete_zsh_prefix(&content),
+            _ => content,
+        };
+    }
+
     let mut cmds = match shell {
         "fish" => list_fish_commands_chrono(&content),
         "zsh" => list_zsh_commands_chrono(&content),
         _ => list_bash_commands_chrono(&content),
     };
+
+    if from_tail && cmds.is_empty() {
+        let raw = std::fs::read(&path)
+            .with_context(|| format!("failed to read shell history at {}", path.display()))?;
+        content = String::from_utf8_lossy(&raw).into_owned();
+        cmds = match shell {
+            "fish" => list_fish_commands_chrono(&content),
+            "zsh" => list_zsh_commands_chrono(&content),
+            _ => list_bash_commands_chrono(&content),
+        };
+    }
+
     if cmds.len() > limit {
         cmds = cmds.split_off(cmds.len() - limit);
     }
@@ -256,6 +356,47 @@ fn parse_fish_history(content: &str) -> Option<HistoryEntry> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::shell::context::ShellContext;
+    use std::fmt::Write;
+
+    #[test]
+    fn strip_zsh_skips_continuation_before_header() {
+        let s = "  broken\n: 1:0;ok1\n: 2:0;ok2\n";
+        let out = strip_incomplete_zsh_prefix(s);
+        assert!(out.starts_with(": 1:0;ok1"), "{out:?}");
+    }
+
+    #[test]
+    fn strip_fish_skips_mid_entry() {
+        let s = "  when: 1\n- cmd: real\n";
+        let out = strip_incomplete_fish_prefix(s);
+        assert!(out.starts_with("- cmd: real"), "{out:?}");
+    }
+
+    #[test]
+    fn recent_bash_uses_tail_on_large_file() {
+        let path = std::env::temp_dir().join(format!("idoit_hist_bash_{}", std::process::id()));
+        let mut body = String::with_capacity(1_600_000);
+        for i in 0..120_000 {
+            writeln!(body, "echo {i}").unwrap();
+        }
+        std::fs::write(&path, &body).unwrap();
+
+        let ctx = ShellContext {
+            os: "linux".into(),
+            shell: "bash".into(),
+            cwd: "/".into(),
+            available_tools: vec![],
+            home: "/".into(),
+        };
+
+        let v = recent_shell_command_lines(&ctx, Some(path.to_str().unwrap()), 5).unwrap();
+        assert_eq!(v.len(), 5);
+        assert_eq!(v[0], "echo 119995");
+        assert_eq!(v[4], "echo 119999");
+
+        let _ = std::fs::remove_file(&path);
+    }
 
     #[test]
     fn test_bash_history() {

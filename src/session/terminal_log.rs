@@ -2,8 +2,15 @@
 //! in this terminal. Format per line: `ISO8601<TAB>command` (single-line commands).
 
 use std::path::PathBuf;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 const MAX_TAIL_LINES: usize = 500;
+
+/// Avoid re-reading (and possibly rewriting) the whole log on every TUI AI round.
+const TRIM_MIN_INTERVAL: Duration = Duration::from_secs(30);
+
+static LAST_TRIM_AT: Mutex<Option<Instant>> = Mutex::new(None);
 
 pub fn terminal_context_path() -> PathBuf {
     dirs::data_local_dir()
@@ -44,19 +51,30 @@ pub fn read_terminal_session_commands(limit: usize) -> Vec<String> {
     parse_terminal_log_content(&content, limit)
 }
 
-/// Truncate log if it grows too large (best-effort).
+/// Truncate log if it grows too large (best-effort). Throttled so hot paths (e.g. TUI context
+/// gather) do not re-read the full file on every keystroke debounce.
 pub fn trim_log_file() {
+    let mut gate = LAST_TRIM_AT.lock().unwrap();
+    let now = Instant::now();
+    if let Some(t) = *gate {
+        if now.duration_since(t) < TRIM_MIN_INTERVAL {
+            return;
+        }
+    }
+
     let path = terminal_context_path();
     let Ok(content) = std::fs::read_to_string(&path) else {
         return;
     };
     let lines: Vec<&str> = content.lines().collect();
     if lines.len() <= MAX_TAIL_LINES {
+        *gate = Some(now);
         return;
     }
     let keep: Vec<&str> = lines[lines.len() - MAX_TAIL_LINES..].to_vec();
     let new = keep.join("\n");
     let _ = std::fs::write(&path, format!("{new}\n"));
+    *gate = Some(now);
 }
 
 #[cfg(test)]
