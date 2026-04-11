@@ -1,9 +1,12 @@
 use anyhow::{bail, Result};
+use console::style;
 
 use crate::ai::client::AiClient;
 use crate::ai::prompt;
 use crate::cli::{candidates, confirm, output, spinner};
 use crate::config::settings::Settings;
+use crate::macros;
+use crate::parser::GlobalOpts;
 use crate::session;
 use crate::shell::context::ShellContext;
 use crate::shell::executor;
@@ -90,4 +93,30 @@ pub async fn run(
     session::record(user_input, &chosen, true, Some(exec_result.exit_code));
 
     Ok(())
+}
+
+/// Wired from `idoit run`, bare prompt, etc.: expand macros, build client/context, call [`run`].
+pub async fn run_from_cli(g: &GlobalOpts, settings: &Settings, prompt: &str) -> Result<()> {
+    let client = AiClient::from_settings(settings, g.provider)?;
+    let ctx = ShellContext::detect(&settings.behavior.shell);
+    let learn = g.learn || settings.behavior.learn_by_default;
+    let expanded = macros::expand(prompt);
+    if !expanded.used.is_empty() {
+        println!(
+            "  {} {}",
+            style("macro:").dim(),
+            style(&expanded.text).dim().italic()
+        );
+    }
+    run(
+        &expanded.text,
+        settings,
+        &client,
+        &ctx,
+        g.anyway,
+        learn,
+        g.dry_run,
+        g.yes,
+    )
+    .await
 }

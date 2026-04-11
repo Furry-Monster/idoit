@@ -1,6 +1,13 @@
 pub mod dispatch;
 pub mod explain;
 pub mod fix;
+pub mod init;
+pub mod last;
+pub mod macro_cmd;
+pub mod prompt_cmd;
 pub mod refine;
+pub mod run;
 pub mod setup;
+pub mod show_config;
 pub mod translate;
+pub mod tui_cmd;

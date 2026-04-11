@@ -4,9 +4,36 @@ use crate::ai::client::AiClient;
 use crate::ai::prompt;
 use crate::cli::{confirm, output, spinner};
 use crate::config::settings::Settings;
+use crate::macros;
+use crate::parser::Args;
 use crate::session;
 use crate::shell::context::ShellContext;
 use crate::shell::executor;
+
+/// `idoit refine …` from argv tail (macro expansion applied).
+pub async fn run_cli(
+    text: &[String],
+    settings: &Settings,
+    client: &AiClient,
+    ctx: &ShellContext,
+    dry_run: bool,
+    auto_yes: bool,
+) -> Result<()> {
+    let refinement = Args::join_prompt(text);
+    if refinement.is_empty() {
+        anyhow::bail!("refine needs text. Example: idoit refine \"only under src\"");
+    }
+    let refinement = macros::expand(&refinement).text;
+    run(
+        &refinement,
+        settings,
+        client,
+        ctx,
+        dry_run,
+        auto_yes,
+    )
+    .await
+}
 
 pub async fn run(
     refinement: &str,
