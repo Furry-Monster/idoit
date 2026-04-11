@@ -1,3 +1,6 @@
+//! One module per CLI subcommand (plus `dispatch` for routing, first-run, and global options).
+//! Handlers delegate to `ai`, `config`, `shell`, `session`, `macros`, `tui`, and `cli`.
+
 pub mod dispatch;
 pub mod explain;
 pub mod fix;

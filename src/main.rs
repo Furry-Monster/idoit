@@ -1,3 +1,5 @@
+//! Binary crate: Tokio runtime, parse argv, dispatch to `commands`.
+
 mod ai;
 mod cli;
 mod commands;

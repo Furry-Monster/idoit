@@ -1,3 +1,5 @@
+//! Config directory (`~/.config/idoit`), `config.toml` load/save, and [`settings`] types.
+
 pub mod settings;
 
 use std::path::PathBuf;

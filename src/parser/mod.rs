@@ -1,3 +1,6 @@
+//! Clap CLI definition: [`Args`], [`GlobalOpts`], [`Commands`], and argv helpers.
+//! Subcommand routing is implemented in `commands::dispatch`, not here.
+
 use clap::{Parser, Subcommand};
 use std::ffi::OsString;
 

@@ -1,3 +1,6 @@
+//! User-defined `@name` macros: load/save `macros.toml` under [`crate::config::config_dir`]
+//! and expand in prompts (used by translate / refine / `run_from_cli`).
+
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 

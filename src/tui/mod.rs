@@ -1,3 +1,7 @@
+//! Full-screen Ratatui UI. Submodules are crate-private; only [`run`] is public.
+//!
+//! `keys` / `draw` / `app` / `ai_coordinator` are intentionally not re-exported.
+
 mod ai_coordinator;
 mod app;
 mod completion;
