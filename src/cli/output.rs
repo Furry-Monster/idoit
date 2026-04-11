@@ -87,3 +87,12 @@ pub fn print_fix_context(last_command: &str) {
         style(last_command).yellow()
     );
 }
+
+pub fn print_selected_alternate_command(cmd: &str) {
+    println!(
+        "  {} {}",
+        style("selected:").dim(),
+        style(cmd).green().bold()
+    );
+    println!();
+}

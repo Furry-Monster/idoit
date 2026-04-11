@@ -77,6 +77,9 @@ mod tests {
 
     #[test]
     fn config_dir_name_is_idoit() {
-        assert_eq!(config_dir().file_name().and_then(|s| s.to_str()), Some("idoit"));
+        assert_eq!(
+            config_dir().file_name().and_then(|s| s.to_str()),
+            Some("idoit")
+        );
     }
 }

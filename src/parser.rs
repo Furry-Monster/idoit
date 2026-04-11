@@ -120,20 +120,14 @@ mod tests {
 
     #[test]
     fn join_prompt_joins_words() {
-        assert_eq!(
-            Args::join_prompt(&["a".into(), "b".into()]),
-            "a b"
-        );
+        assert_eq!(Args::join_prompt(&["a".into(), "b".into()]), "a b");
         assert_eq!(Args::join_prompt(&[]), "");
     }
 
     #[test]
     fn join_prompt_os_lossy_utf8() {
         assert_eq!(
-            Args::join_prompt_os(&[
-                OsString::from("x"),
-                OsString::from("y")
-            ]),
+            Args::join_prompt_os(&[OsString::from("x"), OsString::from("y")]),
             "x y"
         );
     }

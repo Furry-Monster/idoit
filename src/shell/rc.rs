@@ -33,9 +33,7 @@ fn integration_line(shell: &str) -> Option<&'static str> {
 
 fn block_for_shell(shell: &str) -> Option<String> {
     let line = integration_line(shell)?;
-    Some(format!(
-        "\n{BLOCK_START}\n{line}\n{BLOCK_END}\n"
-    ))
+    Some(format!("\n{BLOCK_START}\n{line}\n{BLOCK_END}\n"))
 }
 
 fn strip_existing_block(content: &mut String) {
@@ -100,18 +98,12 @@ mod tests {
             rc_path_for_home(home, "bash").unwrap(),
             home.join(".bashrc")
         );
-        assert_eq!(
-            rc_path_for_home(home, "zsh").unwrap(),
-            home.join(".zshrc")
-        );
+        assert_eq!(rc_path_for_home(home, "zsh").unwrap(), home.join(".zshrc"));
         assert_eq!(
             rc_path_for_home(home, "fish").unwrap(),
             home.join(".config/fish/config.fish")
         );
-        assert_eq!(
-            rc_path_for_home(home, "sh").unwrap(),
-            home.join(".profile")
-        );
+        assert_eq!(rc_path_for_home(home, "sh").unwrap(), home.join(".profile"));
         assert!(rc_path_for_home(home, "pwsh").is_none());
     }
 

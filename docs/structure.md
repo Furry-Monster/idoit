@@ -79,3 +79,8 @@ flowchart TB
     C_SH --> env
 
 ```
+
+## Shell hooks and `idoit fix` data
+
+- **stderr file (`__IDOIT_LAST_STDERR`)** — bash/zsh tee the last interactive command’s stderr into `$XDG_DATA_HOME/idoit/last-stderr-$$.txt` (or `~/.local/share/idoit/…`) and export the path together with `__IDOIT_COMPLETED_CMD` / `__IDOIT_LAST_EXIT` after each prompt. `idoit`/`ifix` lines skip the tee so the file still matches the previous user command. Bash skips pipelines and non-zero `BASH_SUBSHELL`; zsh cannot attach to subshells you do not control. **fish** exports the same variable for API compatibility but cannot capture interactive stderr this way, so the file is usually empty there — use bash or zsh for full error text in fix prompts.
+- **Multi-candidate commands** — CLI `fix` / `translate` merge `command` + `alternates` (deduped), optionally prompt with `dialoguer::Select`, then confirm and execute the chosen string.

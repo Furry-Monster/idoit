@@ -48,14 +48,8 @@ mod tests {
 
     #[test]
     fn clipboard_args_xclip_xsel() {
-        assert_eq!(
-            clipboard_args("xclip"),
-            vec!["-selection", "clipboard"]
-        );
-        assert_eq!(
-            clipboard_args("xsel"),
-            vec!["--clipboard", "--input"]
-        );
+        assert_eq!(clipboard_args("xclip"), vec!["-selection", "clipboard"]);
+        assert_eq!(clipboard_args("xsel"), vec!["--clipboard", "--input"]);
         assert!(clipboard_args("wl-copy").is_empty());
         assert!(clipboard_args("pbcopy").is_empty());
     }

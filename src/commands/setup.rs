@@ -137,11 +137,12 @@ pub fn run() -> Result<()> {
 
     let shell_name = shells[shell_idx];
     if let Some(rc_path) = rc::rc_path(shell_name) {
-        let prompt = format!(
-            "  Add idoit shell hooks to {}?",
-            rc_path.display()
-        );
-        if Confirm::new().with_prompt(prompt).default(true).interact()? {
+        let prompt = format!("  Add idoit shell hooks to {}?", rc_path.display());
+        if Confirm::new()
+            .with_prompt(prompt)
+            .default(true)
+            .interact()?
+        {
             match rc::apply(shell_name) {
                 Ok(p) => {
                     println!(
@@ -156,11 +157,7 @@ pub fn run() -> Result<()> {
                     );
                 }
                 Err(e) => {
-                    eprintln!(
-                        "  {} could not update rc file: {}",
-                        style("!").yellow(),
-                        e
-                    );
+                    eprintln!("  {} could not update rc file: {}", style("!").yellow(), e);
                 }
             }
         }
@@ -176,9 +173,7 @@ fn shell_basename_from_path(path: &str) -> String {
 }
 
 fn detect_shell() -> String {
-    shell_basename_from_path(
-        &std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string()),
-    )
+    shell_basename_from_path(&std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string()))
 }
 
 fn choose_history_path(shell: &str) -> Result<String> {

@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use crate::ai::client::AiClient;
 use crate::ai::prompt;
-use crate::cli::{confirm, output, spinner};
+use crate::cli::{candidates, confirm, output, spinner};
 use crate::config::settings::Settings;
 use crate::session;
 use crate::shell::context::ShellContext;
@@ -53,6 +53,14 @@ pub async fn run(
         }
     }
 
+    let cmd_options = candidates::ordered_command_options(&resp.command, &resp.alternates);
+    let skip_select = dry_run || auto_yes || settings.behavior.auto_confirm;
+    let idx = confirm::pick_command_index(&cmd_options, skip_select)?;
+    let chosen = cmd_options[idx].clone();
+    if cmd_options.len() > 1 && idx != 0 {
+        output::print_selected_alternate_command(&chosen);
+    }
+
     if dry_run {
         output::print_dry_run_notice();
         return Ok(());
@@ -62,9 +70,9 @@ pub async fn run(
         return Ok(());
     }
 
-    let exec_result = executor::execute(ctx, &resp.command)?;
+    let exec_result = executor::execute(ctx, &chosen)?;
     output::print_execution_result(exec_result.exit_code);
-    session::record("fix", &resp.command, true, Some(exec_result.exit_code));
+    session::record("fix", &chosen, true, Some(exec_result.exit_code));
 
     Ok(())
 }
