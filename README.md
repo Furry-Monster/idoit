@@ -9,25 +9,43 @@
 - **Natural language to shell**: Describe intent in plain language; get a command aligned with your OS and shell context.
 - **Safe by default**: Generated commands are shown for approval unless you use `--yes` or enable `behavior.auto_confirm` in config.
 - **Multiple AI backends**: OpenAI, Anthropic, Google Gemini, DeepSeek, or local [Ollama](https://ollama.com/).
-- **Shell integration**: Optional hooks record recent non-idoit commands into a local log for richer context (see `idoit init`).
+- **Shell integration**: Optional hooks record recent non-idoit commands into a local log for richer context (see `idoit init`). Best supported on **bash**, **zsh**, and **fish** (including [Git Bash](https://gitforwindows.org/) on Windows).
 - **Macros**: Save reusable prompt fragments as `@name` and expand them in prompts; definitions live beside your config.
 - **Extras**: `fix` (repair last failure), `explain` (plain-language explanation of a command), `refine` (iterate on the last suggestion), `last` (re-run last idoit-generated command).
 
 ## Requirements
 
-- **Rust toolchain** (for building from this repository): stable, recent enough for the 2021 edition.
+- **Rust toolchain** (only if you build from source): stable, recent enough for the 2021 edition.
 - **Network access** to your chosen provider’s API, or a reachable **Ollama** instance for local models.
 - **API keys** (cloud providers): set the environment variables your config expects, or store keys in `config.toml` if you accept that risk profile.
+- **Terminal**: For `--tui`, use a modern terminal (e.g. **Windows Terminal** on Windows, **Terminal.app** or **iTerm2** on macOS, your usual emulator on Linux).
 
 ## Install
 
-From a clone of this repository:
+### From crates.io (Linux, macOS, Windows)
+
+```bash
+cargo install idoit
+```
+
+Add Cargo’s bin directory to your **PATH** if it is not already:
+
+| OS | Typical location |
+|----|------------------|
+| **Linux** / **macOS** | `$HOME/.cargo/bin` |
+| **Windows** | `%USERPROFILE%\.cargo\bin` |
+
+On Windows you can set PATH permanently via *Settings → System → About → Advanced system settings → Environment variables*, or use your shell profile.
+
+### Prebuilt binaries
+
+GitHub [Releases](https://github.com/Furry-Monster/idoit/releases) ship archives per target (e.g. Linux `x86_64`, macOS `aarch64`, Windows `x86_64` MSVC). Download, unpack, and put the `idoit` binary (or `idoit.exe`) on your `PATH`.
+
+### From a clone of this repository
 
 ```bash
 cargo install --path .
 ```
-
-Ensure `~/.cargo/bin` is on your `PATH`.
 
 ## Quick start
 
@@ -38,6 +56,8 @@ idoit list files in the current directory
 
 First run triggers an interactive **setup** if no config file exists yet. Then invoke **idoit** with a natural-language prompt (same as `idoit run …`).
 
+On **Windows**, if you use **PowerShell** or **cmd.exe** as your default shell, idoit runs suggested commands through that shell. For Unix-style `idoit init` hooks, use **Git Bash**, **WSL**, or a Linux/macOS environment.
+
 ## Commands
 
 | Command | Purpose |
@@ -45,7 +65,7 @@ First run triggers an interactive **setup** if no config file exists yet. Then i
 | `idoit …` | Default: treat remaining words as a natural-language prompt. |
 | `idoit run …` | Same as above, explicit. |
 | `idoit setup` | First-time or later reconfiguration wizard. |
-| `idoit init bash` \| `zsh` \| `fish` | Print shell integration; use `eval "$(idoit init <shell>)"`. |
+| `idoit init bash` \| `zsh` \| `fish` | Print shell integration; use `eval "$(idoit init <shell>)"` (Unix-like shells). |
 | `idoit config` | Show full config as TOML (default). Subcommands: `keys`, `get <key>`, `set <key> <value>`. |
 | `idoit last` | Re-execute the last idoit-generated command. |
 | `idoit macro NAME …` | Save a macro; reference `@NAME` in prompts. |
@@ -70,9 +90,11 @@ These apply to subcommands that invoke the model or run commands (see `--help` f
 
 ## Configuration
 
-- **File**: `~/.config/idoit/config.toml` (under `$XDG_CONFIG_HOME/idoit` when set).
+- **Location**: `config.toml` inside the per-OS config directory below (same layout on all platforms).
 - **Wizard**: `idoit setup` creates or updates settings interactively.
 - **CLI**: `idoit config keys` lists dot-path keys; `idoit config get ai.provider` / `idoit config set ai.provider ollama` edit single values.
+
+Run `idoit config` (or check startup messages) to see the resolved path on your machine.
 
 Typical environment variables for API keys (names can be changed per provider block in TOML):
 
@@ -88,25 +110,27 @@ Relevant TOML sections include `[ai]` (provider, timeouts, temperature, models),
 
 ## Local data
 
-Paths follow XDG defaults on Linux; adjust with `XDG_DATA_HOME` / `XDG_CONFIG_HOME` as usual.
+Config and data paths follow the [dirs](https://docs.rs/dirs) crate (XDG-style on Linux, native conventions on macOS and Windows). `macros.toml` lives next to `config.toml`.
 
-| Path | Role |
-|------|------|
-| `~/.config/idoit/config.toml` | Main configuration. |
-| `~/.config/idoit/macros.toml` | `@name` macro definitions. |
-| `~/.local/share/idoit/history.json` | idoit interaction history (`last`, `refine`). |
-| `~/.local/share/idoit/terminal_context.jsonl` | Recent non-idoit commands (populated when shell hooks from `idoit init` are installed). |
+| Role | Linux | macOS | Windows |
+|------|--------|--------|---------|
+| **Config** (`config.toml`, `macros.toml`) | `~/.config/idoit/` | `~/Library/Application Support/idoit/` | `%APPDATA%\idoit\` |
+| **Data** (`history.json`, `terminal_context.jsonl`, …) | `~/.local/share/idoit/` | `~/Library/Application Support/idoit/` | `%LOCALAPPDATA%\idoit\` |
+
+On Linux, `XDG_CONFIG_HOME` / `XDG_DATA_HOME` override the default base directories when set.
 
 ## Shell integration
 
-Load the snippet for your shell so hooks can append to `terminal_context.jsonl` and support flows like `fix`:
+For **bash**, **zsh**, or **fish**, load the snippet so hooks can append to `terminal_context.jsonl` and support flows like `fix`:
 
 ```bash
 eval "$(idoit init bash)"   # or: zsh, fish
 ```
 
-Add that line to your shell rc file if you want it in every session.
+Add that line to your shell rc file (e.g. `~/.bashrc`, `~/.zshrc`, `~/.config/fish/config.fish`) if you want it in every session.
+
+**Windows:** Hooks are shell scripts aimed at Unix-style shells. Use **Git Bash** (or **WSL**) and the same `eval "$(idoit init bash)"` line in the appropriate rc file for that environment. **PowerShell** / **cmd** integration is not generated by `idoit init` today; you can still use idoit for translate/run/TUI without hooks.
 
 ## Privacy and security
 
-Natural-language prompts, shell context, and command text may be sent to the configured AI provider (or your local Ollama). Review your organization’s policy before use. API keys are safer in the environment than in plain files; if you store them in `config.toml`, restrict file permissions.
+Natural-language prompts, shell context, and command text may be sent to the configured AI provider (or your local Ollama). Review your organization’s policy before use. API keys are safer in the environment than in plain files; if you store them in `config.toml`, restrict file permissions (on Unix: `chmod 600`).
