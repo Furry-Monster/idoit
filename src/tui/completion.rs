@@ -135,9 +135,14 @@ fn is_executable(path: &PathBuf) -> bool {
     };
     let dotted = format!(".{}", ext.to_ascii_lowercase());
     let pathext = env::var("PATHEXT").unwrap_or_else(|_| ".EXE;.CMD;.BAT;.COM".into());
-    env::split_paths(&pathext)
-        .filter_map(|p| p.to_str())
-        .any(|pe| pe.eq_ignore_ascii_case(&dotted))
+    for p in env::split_paths(&pathext) {
+        if let Some(pe) = p.to_str() {
+            if pe.eq_ignore_ascii_case(&dotted) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 #[cfg(all(not(unix), not(windows)))]
