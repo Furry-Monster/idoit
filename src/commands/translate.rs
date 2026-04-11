@@ -8,6 +8,7 @@ use crate::session;
 use crate::shell::context::ShellContext;
 use crate::shell::executor;
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run(
     user_input: &str,
     settings: &Settings,

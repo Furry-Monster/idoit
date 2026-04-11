@@ -132,7 +132,6 @@ fn is_executable(_path: &PathBuf) -> bool {
 
 /// Returns candidate completions for the **last** token (full replacement words, not suffix-only).
 pub fn shell_candidates(line: &str) -> Vec<String> {
-    let line = line;
     let ends_space = line.ends_with(' ') && !line.trim().is_empty();
     let words: Vec<&str> = line.split_whitespace().collect();
 

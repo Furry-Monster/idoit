@@ -144,9 +144,9 @@ fn list_zsh_commands_chrono(content: &str) -> Vec<String> {
         }
         let full = current.join("\n");
         let cmd = if full.starts_with(": ") {
-            full.splitn(2, ';')
-                .nth(1)
-                .unwrap_or(&full)
+            full.split_once(';')
+                .map(|(_, rest)| rest)
+                .unwrap_or(full.as_str())
                 .trim()
                 .to_string()
         } else {
@@ -218,9 +218,11 @@ fn parse_zsh_history(content: &str) -> Option<HistoryEntry> {
             current.reverse();
             let full = current.join("\n");
             let cmd = if full.starts_with(": ") {
-                full.splitn(2, ';').nth(1).unwrap_or(&full)
+                full.split_once(';')
+                    .map(|(_, rest)| rest)
+                    .unwrap_or(full.as_str())
             } else {
-                &full
+                full.as_str()
             };
             let cmd = cmd.trim().to_string();
             if !cmd.is_empty() {

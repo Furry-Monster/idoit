@@ -84,9 +84,7 @@ impl App {
         if let Some(_suf) = self.shell_ghost() {
             let (prefix, token) = split_last_token(&self.input);
             let cand = &self.shell_cands[self.shell_idx];
-            if token.is_empty() {
-                self.input = format!("{prefix}{cand}");
-            } else if cand.starts_with(&token) {
+            if token.is_empty() || cand.starts_with(&token) {
                 self.input = format!("{prefix}{cand}");
             }
             self.refresh_shell();

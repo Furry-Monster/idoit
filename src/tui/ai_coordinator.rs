@@ -75,6 +75,7 @@ impl AiCoordinatorHandle {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_ai_coordinator(
     settings: Arc<Settings>,
     client: Arc<AiClient>,
@@ -110,6 +111,7 @@ pub fn spawn_ai_coordinator(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn coordinator_loop(
     mut input_rx: watch::Receiver<InputTick>,
     settings: Arc<Settings>,

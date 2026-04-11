@@ -29,7 +29,7 @@ impl std::fmt::Display for AiProviderId {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
     pub ai: AiSettings,
@@ -168,16 +168,6 @@ fn default_true() -> bool {
 
 // --- Default impls ---
 
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            ai: AiSettings::default(),
-            behavior: BehaviorSettings::default(),
-            ui: UiSettings::default(),
-        }
-    }
-}
-
 impl Default for AiSettings {
     fn default() -> Self {
         Self {
@@ -234,7 +224,7 @@ impl Default for OllamaSettings {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BehaviorSettings {
     #[serde(default)]
     pub auto_confirm: bool,
@@ -244,17 +234,6 @@ pub struct BehaviorSettings {
     pub shell: String,
     #[serde(default)]
     pub history_path: String,
-}
-
-impl Default for BehaviorSettings {
-    fn default() -> Self {
-        Self {
-            auto_confirm: false,
-            learn_by_default: false,
-            shell: String::new(),
-            history_path: String::new(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
