@@ -242,24 +242,19 @@ async fn coordinator_loop(
             break;
         }
 
-        let base_ms = settings.ui.tui_debounce_ms.max(1);
-        let base = Duration::from_millis(base_ms);
-        let mut inner_resets: u32 = 0;
-
+        // Trailing debounce only: after each keystroke, wait `tui_debounce_ms` with no further
+        // changes before calling the model. (Older logic used a 300ms floor on follow-up waits,
+        // which made low `ui.tui_debounce_ms` settings ineffective and added hundreds of ms after
+        // fast typing.)
+        let base = Duration::from_millis(settings.ui.tui_debounce_ms.max(1));
         loop {
-            let delay = if inner_resets == 0 {
-                Duration::from_millis((base_ms * 3).max(1) / 4)
-            } else {
-                base.max(Duration::from_millis(300))
-            };
-            let deadline = tokio::time::Instant::now() + delay;
+            let deadline = tokio::time::Instant::now() + base;
             tokio::select! {
                 _ = tokio::time::sleep_until(deadline) => break,
                 res = input_rx.changed() => {
                     if res.is_err() {
                         return;
                     }
-                    inner_resets = inner_resets.saturating_add(1);
                 }
             }
         }
