@@ -147,12 +147,16 @@ impl App {
         self.trans_expl = err;
     }
 
-    pub fn apply_diag(&mut self, gen: u64, text: String) {
+    pub fn apply_diag(&mut self, gen: u64, text: String, done: bool) {
         if gen != self.ai_gen {
             return;
         }
-        self.diag_pending = false;
         self.diagnostic = text;
+        if done {
+            self.diag_pending = false;
+        } else {
+            self.diag_pending = true;
+        }
     }
 
     pub fn apply_diag_err(&mut self, gen: u64, err: String) {

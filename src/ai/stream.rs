@@ -1,7 +1,6 @@
-#![allow(dead_code)]
-
 /// Parse Server-Sent Events from raw SSE bytes.
 /// Returns an iterator of data payloads (lines starting with "data: ").
+#[allow(dead_code)]
 pub fn parse_sse_events(raw: &str) -> Vec<String> {
     raw.lines()
         .filter_map(|line| {

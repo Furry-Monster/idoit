@@ -59,15 +59,7 @@ pub async fn run(args: Args) -> Result<()> {
             let settings = Arc::new(settings);
             let client = Arc::new(AiClient::from_settings(&settings, g.provider)?);
             let ctx = Arc::new(ShellContext::detect(&settings.behavior.shell));
-            tui_cmd::run(
-                settings,
-                client,
-                ctx,
-                learn_mode,
-                g.anyway,
-                g.dry_run,
-            )
-            .await
+            tui_cmd::run(settings, client, ctx, learn_mode, g.anyway, g.dry_run).await
         }
         Some(Commands::Fix) => {
             let client = AiClient::from_settings(&settings, g.provider)?;

@@ -242,6 +242,13 @@ pub struct UiSettings {
     pub color: bool,
     #[serde(default)]
     pub verbose: bool,
+    /// Debounce before TUI sends AI requests after input stops changing (milliseconds).
+    #[serde(default = "default_tui_debounce_ms")]
+    pub tui_debounce_ms: u64,
+}
+
+fn default_tui_debounce_ms() -> u64 {
+    400
 }
 
 impl Default for UiSettings {
@@ -249,6 +256,7 @@ impl Default for UiSettings {
         Self {
             color: true,
             verbose: false,
+            tui_debounce_ms: default_tui_debounce_ms(),
         }
     }
 }
@@ -268,6 +276,7 @@ mod tests {
         assert_eq!(s.ai.timeout_secs, 30);
         assert!((s.ai.temperature - 0.1).abs() < f64::EPSILON);
         assert_eq!(s.ai.max_tokens, 2048);
+        assert_eq!(s.ui.tui_debounce_ms, 400);
     }
 
     #[test]

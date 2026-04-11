@@ -98,9 +98,5 @@ pub fn print_selected_alternate_command(cmd: &str) {
 }
 
 pub fn print_exec_safety_warning(msg: &str) {
-    println!(
-        "  {} {}",
-        style("⚠").yellow(),
-        style(msg).yellow()
-    );
+    println!("  {} {}", style("⚠").yellow(), style(msg).yellow());
 }

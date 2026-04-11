@@ -33,7 +33,7 @@ pub async fn run(
     let model = client.model_name(settings);
     let spin = spinner::Spinner::new("thinking...");
     let result = client
-        .ask_command(&system, &user_with_ctx, &model, settings, Some(&spin))
+        .ask_command(&system, &user_with_ctx, &model, settings, Some(&spin), None)
         .await;
     spin.finish();
 
@@ -79,11 +79,7 @@ pub async fn run(
         return Ok(());
     }
 
-    if !confirm::confirm_shell_execution(
-        auto_yes,
-        settings.behavior.auto_confirm,
-        &chosen,
-    )? {
+    if !confirm::confirm_shell_execution(auto_yes, settings.behavior.auto_confirm, &chosen)? {
         session::record(user_input, &chosen, false, None);
         return Ok(());
     }

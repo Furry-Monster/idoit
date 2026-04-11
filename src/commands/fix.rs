@@ -34,7 +34,7 @@ pub async fn run(
 
     let spin = spinner::Spinner::new("diagnosing...");
     let result = client
-        .ask_command(&system, &user_msg, &model, settings, Some(&spin))
+        .ask_command(&system, &user_msg, &model, settings, Some(&spin), None)
         .await;
     spin.finish();
 
@@ -66,11 +66,7 @@ pub async fn run(
         return Ok(());
     }
 
-    if !confirm::confirm_shell_execution(
-        auto_yes,
-        settings.behavior.auto_confirm,
-        &chosen,
-    )? {
+    if !confirm::confirm_shell_execution(auto_yes, settings.behavior.auto_confirm, &chosen)? {
         return Ok(());
     }
 

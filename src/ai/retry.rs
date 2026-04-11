@@ -3,19 +3,31 @@ use std::time::Duration;
 
 use anyhow::Result;
 use rand::Rng;
+use tokio_util::sync::CancellationToken;
 
 pub struct RetryConfig {
     pub max_retries: u32,
     pub on_retry: Option<Box<dyn Fn(u32, Duration) + Send + Sync>>,
 }
 
-pub async fn with_retry<F, Fut, T>(config: &RetryConfig, mut f: F) -> Result<T>
+pub fn is_cancelled_error(err: &anyhow::Error) -> bool {
+    err.chain().any(|c| c.to_string() == "cancelled")
+}
+
+pub async fn with_retry<F, Fut, T>(
+    config: &RetryConfig,
+    cancel: Option<&CancellationToken>,
+    mut f: F,
+) -> Result<T>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T>>,
 {
     let mut attempt = 0;
     loop {
+        if cancel.map(|c| c.is_cancelled()).unwrap_or(false) {
+            return Err(anyhow::anyhow!("cancelled"));
+        }
         match f().await {
             Ok(val) => return Ok(val),
             Err(e) => {
@@ -28,13 +40,28 @@ where
                 if let Some(ref cb) = config.on_retry {
                     cb(attempt, delay);
                 }
-                tokio::time::sleep(delay).await;
+                if cancel.map(|c| c.is_cancelled()).unwrap_or(false) {
+                    return Err(anyhow::anyhow!("cancelled"));
+                }
+                if let Some(c) = cancel {
+                    tokio::select! {
+                        _ = tokio::time::sleep(delay) => {}
+                        _ = c.cancelled() => {
+                            return Err(anyhow::anyhow!("cancelled"));
+                        }
+                    }
+                } else {
+                    tokio::time::sleep(delay).await;
+                }
             }
         }
     }
 }
 
 fn is_retryable(err: &anyhow::Error) -> bool {
+    if is_cancelled_error(err) {
+        return false;
+    }
     let msg = format!("{err:#}");
     let msg = msg.to_lowercase();
 
@@ -102,6 +129,12 @@ mod tests {
     #[test]
     fn test_not_retryable_401() {
         let err = anyhow::anyhow!("AI provider returned 401 Unauthorized");
+        assert!(!is_retryable(&err));
+    }
+
+    #[test]
+    fn test_not_retryable_cancelled() {
+        let err = anyhow::anyhow!("cancelled");
         assert!(!is_retryable(&err));
     }
 

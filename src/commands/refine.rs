@@ -24,15 +24,7 @@ pub async fn run_cli(
         anyhow::bail!("refine needs text. Example: idoit refine \"only under src\"");
     }
     let refinement = macros::expand(&refinement).text;
-    run(
-        &refinement,
-        settings,
-        client,
-        ctx,
-        dry_run,
-        auto_yes,
-    )
-    .await
+    run(&refinement, settings, client, ctx, dry_run, auto_yes).await
 }
 
 pub async fn run(
@@ -54,7 +46,7 @@ pub async fn run(
 
     let spin = spinner::Spinner::new("refining...");
     let result = client
-        .ask_command(&system, &user_msg, &model, settings, Some(&spin))
+        .ask_command(&system, &user_msg, &model, settings, Some(&spin), None)
         .await;
     spin.finish();
 
@@ -73,11 +65,7 @@ pub async fn run(
         return Ok(());
     }
 
-    if !confirm::confirm_shell_execution(
-        auto_yes,
-        settings.behavior.auto_confirm,
-        &resp.command,
-    )? {
+    if !confirm::confirm_shell_execution(auto_yes, settings.behavior.auto_confirm, &resp.command)? {
         session::record(refinement, &resp.command, false, None);
         return Ok(());
     }

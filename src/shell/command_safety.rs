@@ -198,9 +198,7 @@ fn collect_risk_reasons(seg: &str) -> Vec<String> {
             || s.contains(" -rf *")
             || s.contains(" -fr *");
         if dangerous_target {
-            reasons.push(
-                "rm -rf may hit home, root, or broad globs — verify targets".to_string(),
-            );
+            reasons.push("rm -rf may hit home, root, or broad globs — verify targets".to_string());
         }
     }
 
@@ -249,9 +247,7 @@ impl ExecSafetyReport {
     }
 
     pub fn needs_strict_default(&self) -> bool {
-        self.segments.len() > 1
-            || self.has_heredoc
-            || !self.high_risk_reasons.is_empty()
+        self.segments.len() > 1 || self.has_heredoc || !self.high_risk_reasons.is_empty()
     }
 }
 

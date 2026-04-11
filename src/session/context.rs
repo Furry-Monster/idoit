@@ -1,11 +1,29 @@
 //! In-memory layered context for prompts: shell history file → terminal session log → idoit run buffer.
 
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant, UNIX_EPOCH};
+
 use crate::config::settings::Settings;
 use crate::shell::context::ShellContext;
 use crate::shell::history;
 
 use super::terminal_log;
 use super::SessionEntry;
+
+/// How long file-backed layers may be reused without re-reading (safety net if mtime is coarse).
+const CONTEXT_CACHE_TTL: Duration = Duration::from_secs(2);
+
+fn file_meta_stamp(path: &Path) -> Option<(u64, u64)> {
+    let m = std::fs::metadata(path).ok()?;
+    let len = m.len();
+    let modified = m
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    Some((modified, len))
+}
 
 /// How many lines to take from each layer (window ends at most recent).
 pub const SHELL_HISTORY_SNIPPET: usize = 50;
@@ -101,6 +119,74 @@ impl LayeredContext {
         }
 
         s
+    }
+}
+
+/// Reuses shell history + terminal log between TUI AI rounds when files are unchanged (see plan §5).
+pub struct LayeredContextCache {
+    hist_sig: Option<(PathBuf, Option<(u64, u64)>)>,
+    term_sig: Option<(u64, u64)>,
+    cached_at: Instant,
+    shell_history_file: Vec<String>,
+    terminal_session: Vec<String>,
+}
+
+impl LayeredContextCache {
+    pub fn new() -> Self {
+        Self {
+            hist_sig: None,
+            term_sig: None,
+            cached_at: Instant::now() - Duration::from_secs(3600),
+            shell_history_file: Vec::new(),
+            terminal_session: Vec::new(),
+        }
+    }
+
+    pub fn gather(
+        &mut self,
+        ctx: &ShellContext,
+        settings: &Settings,
+        idoit_this_run: Option<&[SessionEntry]>,
+    ) -> LayeredContext {
+        terminal_log::trim_log_file();
+
+        let hist_override = {
+            let p = settings.behavior.history_path.trim();
+            if p.is_empty() {
+                None
+            } else {
+                Some(p)
+            }
+        };
+
+        let hist_sig = history::history_file_path(ctx, hist_override)
+            .ok()
+            .map(|p| (p.clone(), file_meta_stamp(&p)));
+
+        let term_path = terminal_log::terminal_context_path();
+        let term_sig = file_meta_stamp(&term_path);
+
+        let ttl_ok = self.cached_at.elapsed() <= CONTEXT_CACHE_TTL;
+        let cache_hit = ttl_ok && self.hist_sig == hist_sig && self.term_sig == term_sig;
+
+        if !cache_hit {
+            self.shell_history_file =
+                history::recent_shell_command_lines(ctx, hist_override, SHELL_HISTORY_SNIPPET)
+                    .unwrap_or_default();
+            self.terminal_session =
+                terminal_log::read_terminal_session_commands(TERMINAL_SESSION_SNIPPET);
+            self.hist_sig = hist_sig;
+            self.term_sig = term_sig;
+            self.cached_at = Instant::now();
+        }
+
+        LayeredContext {
+            shell_history_file: self.shell_history_file.clone(),
+            terminal_session: self.terminal_session.clone(),
+            idoit_this_run: idoit_this_run
+                .map(<[SessionEntry]>::to_vec)
+                .unwrap_or_default(),
+        }
     }
 }
 

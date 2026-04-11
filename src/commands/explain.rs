@@ -34,7 +34,7 @@ pub async fn run(
 
     let spin = spinner::Spinner::new("analyzing...");
     let (content, elapsed) = client
-        .ask_freeform(&system, command_to_explain, &model, settings)
+        .ask_freeform(&system, command_to_explain, &model, settings, None)
         .await?;
     spin.finish();
 

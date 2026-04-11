@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
+use tokio_util::sync::CancellationToken;
 
 use crate::ai::provider::AiProvider;
 use crate::ai::types::{CompletionRequest, CompletionResponse};
@@ -42,12 +43,42 @@ impl OllamaProvider {
     }
 }
 
+fn check_cancel(cancel: Option<&CancellationToken>) -> Result<()> {
+    if cancel.map(|c| c.is_cancelled()).unwrap_or(false) {
+        bail!("cancelled");
+    }
+    Ok(())
+}
+
+impl OllamaProvider {
+    /// Streaming path falls back to one-shot completion and invokes `on_delta` once.
+    pub async fn stream_complete<F>(
+        &self,
+        request: &CompletionRequest,
+        cancel: Option<&CancellationToken>,
+        mut on_delta: F,
+    ) -> Result<CompletionResponse>
+    where
+        F: FnMut(&str) + Send,
+    {
+        let r = self.complete(request, cancel).await?;
+        if !r.content.is_empty() {
+            on_delta(&r.content);
+        }
+        Ok(r)
+    }
+}
+
 impl AiProvider for OllamaProvider {
     fn name(&self) -> &str {
         "ollama"
     }
 
-    async fn complete(&self, request: &CompletionRequest) -> Result<CompletionResponse> {
+    async fn complete(
+        &self,
+        request: &CompletionRequest,
+        cancel: Option<&CancellationToken>,
+    ) -> Result<CompletionResponse> {
         let url = format!("{}/api/generate", self.host);
 
         let body = GenerateRequest {
@@ -60,6 +91,7 @@ impl AiProvider for OllamaProvider {
             },
         };
 
+        check_cancel(cancel)?;
         let resp = self
             .client
             .post(&url)
@@ -68,6 +100,7 @@ impl AiProvider for OllamaProvider {
             .await
             .with_context(|| format!("failed to reach Ollama at {}", self.host))?;
 
+        check_cancel(cancel)?;
         if !resp.status().is_success() {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();

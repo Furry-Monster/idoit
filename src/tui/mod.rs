@@ -97,7 +97,7 @@ pub async fn run(
                 if let Some(d) = diag_rx.borrow().clone() {
                     let mut st = app.lock().unwrap();
                     match d.text {
-                        Ok(t) => st.apply_diag(d.gen, t),
+                        Ok(t) => st.apply_diag(d.gen, t, d.done),
                         Err(e) => st.apply_diag_err(d.gen, e),
                     }
                 }

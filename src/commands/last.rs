@@ -19,11 +19,7 @@ pub async fn run(settings: &Settings, auto_yes: bool) -> Result<()> {
 
     let ctx = ShellContext::detect(&settings.behavior.shell);
 
-    if !cli::confirm::confirm_shell_execution(
-        auto_yes,
-        settings.behavior.auto_confirm,
-        &cmd,
-    )? {
+    if !cli::confirm::confirm_shell_execution(auto_yes, settings.behavior.auto_confirm, &cmd)? {
         return Ok(());
     }
 

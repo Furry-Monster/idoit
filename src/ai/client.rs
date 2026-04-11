@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use tokio_util::sync::CancellationToken;
 
 use crate::cli::spinner::Spinner;
 use crate::config::settings::{AiProviderId, Settings};
@@ -12,6 +13,9 @@ use super::providers::ollama::OllamaProvider;
 use super::providers::openai::OpenAiProvider;
 use super::retry::{self, RetryConfig};
 use super::types::{AiCommandResponse, CompletionRequest, CompletionResponse};
+
+/// Cap streamed diagnostic text to limit memory use in the TUI.
+pub const MAX_FREEFORM_STREAM_BYTES: usize = 256 * 1024;
 
 pub struct AiClient {
     inner: AiClientInner,
@@ -84,12 +88,16 @@ impl AiClient {
         }
     }
 
-    async fn complete(&self, request: &CompletionRequest) -> Result<CompletionResponse> {
+    async fn complete(
+        &self,
+        request: &CompletionRequest,
+        cancel: Option<&CancellationToken>,
+    ) -> Result<CompletionResponse> {
         match &self.inner {
-            AiClientInner::OpenAi(p) => p.complete(request).await,
-            AiClientInner::Anthropic(p) => p.complete(request).await,
-            AiClientInner::Gemini(p) => p.complete(request).await,
-            AiClientInner::Ollama(p) => p.complete(request).await,
+            AiClientInner::OpenAi(p) => p.complete(request, cancel).await,
+            AiClientInner::Anthropic(p) => p.complete(request, cancel).await,
+            AiClientInner::Gemini(p) => p.complete(request, cancel).await,
+            AiClientInner::Ollama(p) => p.complete(request, cancel).await,
         }
     }
 
@@ -100,6 +108,7 @@ impl AiClient {
         model: &str,
         settings: &Settings,
         spinner: Option<&Spinner>,
+        cancel: Option<&CancellationToken>,
     ) -> Result<AskResult> {
         let request = CompletionRequest {
             system: system.to_string(),
@@ -126,7 +135,8 @@ impl AiClient {
         };
 
         let start = Instant::now();
-        let response = retry::with_retry(&retry_config, || self.complete(&request)).await?;
+        let response =
+            retry::with_retry(&retry_config, cancel, || self.complete(&request, cancel)).await?;
         let elapsed = start.elapsed();
 
         let parsed = parse_command_response(&response.content)?;
@@ -142,6 +152,7 @@ impl AiClient {
         user_message: &str,
         model: &str,
         settings: &Settings,
+        cancel: Option<&CancellationToken>,
     ) -> Result<(String, Duration)> {
         let request = CompletionRequest {
             system: system.to_string(),
@@ -157,7 +168,49 @@ impl AiClient {
         };
 
         let start = Instant::now();
-        let response = retry::with_retry(&retry_config, || self.complete(&request)).await?;
+        let response =
+            retry::with_retry(&retry_config, cancel, || self.complete(&request, cancel)).await?;
+        Ok((response.content, start.elapsed()))
+    }
+
+    /// Incremental freeform completion (SSE). Retries are not applied here to avoid duplicate deltas.
+    pub async fn ask_freeform_stream<F>(
+        &self,
+        system: &str,
+        user_message: &str,
+        model: &str,
+        settings: &Settings,
+        cancel: Option<&CancellationToken>,
+        mut on_delta: F,
+    ) -> Result<(String, Duration)>
+    where
+        F: FnMut(&str) + Send,
+    {
+        let request = CompletionRequest {
+            system: system.to_string(),
+            user_message: user_message.to_string(),
+            model: model.to_string(),
+            temperature: settings.ai.temperature,
+            max_tokens: settings.ai.max_tokens,
+        };
+
+        let start = Instant::now();
+        let response = match &self.inner {
+            AiClientInner::OpenAi(p) => {
+                p.stream_complete(&request, cancel, MAX_FREEFORM_STREAM_BYTES, &mut on_delta)
+                    .await?
+            }
+            AiClientInner::Anthropic(p) => {
+                p.stream_complete(&request, cancel, MAX_FREEFORM_STREAM_BYTES, &mut on_delta)
+                    .await?
+            }
+            AiClientInner::Gemini(p) => {
+                p.stream_complete(&request, cancel, MAX_FREEFORM_STREAM_BYTES, &mut on_delta)
+                    .await?
+            }
+            AiClientInner::Ollama(p) => p.stream_complete(&request, cancel, &mut on_delta).await?,
+        };
+
         Ok((response.content, start.elapsed()))
     }
 }
