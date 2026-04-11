@@ -48,3 +48,23 @@ pub fn execute_capture(ctx: &ShellContext, command: &str) -> Result<(String, Str
 
     Ok((stdout, stderr, code))
 }
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::execute_capture;
+    use crate::shell::context::ShellContext;
+
+    #[test]
+    fn execute_capture_runs_shell_command() {
+        let ctx = ShellContext {
+            os: "unix".into(),
+            shell: "sh".into(),
+            cwd: "/".into(),
+            available_tools: vec![],
+            home: "/".into(),
+        };
+        let (out, err, code) = execute_capture(&ctx, "echo idoit_test_marker").unwrap();
+        assert_eq!(code, 0, "stderr={err}");
+        assert!(out.contains("idoit_test_marker"), "out={out}");
+    }
+}

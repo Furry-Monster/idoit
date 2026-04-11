@@ -139,3 +139,37 @@ alias iexplain 'idoit explain'
 "#
     .to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::generate;
+
+    #[test]
+    fn generate_bash_has_prompt_command_hook() {
+        let s = generate("bash");
+        assert!(s.contains("__idoit_prompt_command"));
+        assert!(s.contains("PROMPT_COMMAND="));
+        assert!(s.contains("alias ido='idoit'"));
+    }
+
+    #[test]
+    fn generate_zsh_uses_zsh_hooks() {
+        let s = generate("zsh");
+        assert!(s.contains("add-zsh-hook"));
+        assert!(s.contains("__idoit_precmd"));
+    }
+
+    #[test]
+    fn generate_fish_uses_fish_postexec() {
+        let s = generate("fish");
+        assert!(s.contains("fish_postexec"));
+        assert!(s.contains("function __idoit_append_terminal_session"));
+    }
+
+    #[test]
+    fn generate_unknown_falls_back_to_bash_script() {
+        let bash = generate("bash");
+        let other = generate("some-unknown-shell");
+        assert_eq!(bash, other);
+    }
+}

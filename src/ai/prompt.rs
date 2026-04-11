@@ -194,3 +194,76 @@ pub fn refine_user_message(
          Refinement: {refinement}"
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shell::context::ShellContext;
+
+    fn ctx() -> ShellContext {
+        ShellContext {
+            os: "linux/x86_64".into(),
+            shell: "bash".into(),
+            cwd: "/tmp/w".into(),
+            available_tools: vec!["git".into(), "ls".into()],
+            home: "/home/u".into(),
+        }
+    }
+
+    #[test]
+    fn with_shell_context_empty_block_passthrough() {
+        assert_eq!(with_shell_context("hi", ""), "hi");
+        assert_eq!(with_shell_context("hi", "   "), "hi");
+    }
+
+    #[test]
+    fn with_shell_context_prefixes_block() {
+        let out = with_shell_context("run it", "- foo");
+        assert!(out.contains("Context"));
+        assert!(out.contains("- foo"));
+        assert!(out.ends_with("run it"));
+    }
+
+    #[test]
+    fn translate_system_includes_env_and_anyway_toggle() {
+        let anyway_on = translate_system(&ctx(), true);
+        assert!(anyway_on.contains("linux/x86_64"));
+        assert!(anyway_on.contains("bash"));
+        assert!(anyway_on.contains("/tmp/w"));
+        assert!(anyway_on.contains("git, ls"));
+        assert!(anyway_on.contains("--anyway"));
+
+        let anyway_off = translate_system(&ctx(), false);
+        assert!(anyway_off.contains("missing_tools"));
+        assert!(!anyway_off.contains("--anyway mode"));
+    }
+
+    #[test]
+    fn translate_system_unknown_tools_when_empty() {
+        let mut c = ctx();
+        c.available_tools.clear();
+        let s = translate_system(&c, false);
+        assert!(s.contains("unknown"));
+    }
+
+    #[test]
+    fn fix_user_message_includes_exit_and_stderr() {
+        let m = fix_user_message("false", "oops", Some(1));
+        assert!(m.contains("false"));
+        assert!(m.contains("Exit code: 1"));
+        assert!(m.contains("oops"));
+    }
+
+    #[test]
+    fn refine_user_message_joins_sections() {
+        let m = refine_user_message("a", "b", "c");
+        assert!(m.contains("Previous request: a"));
+        assert!(m.contains("Previous suggestion: b"));
+        assert!(m.contains("Refinement: c"));
+    }
+
+    #[test]
+    fn learn_suffix_mentions_teaching_json() {
+        assert!(learn_suffix().contains("teaching"));
+    }
+}

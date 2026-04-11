@@ -138,3 +138,38 @@ fn detect_available_tools() -> Vec<String> {
         .map(|t| t.to_string())
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ShellContext;
+
+    fn dummy() -> ShellContext {
+        ShellContext {
+            os: "linux/x86_64".into(),
+            shell: "bash".into(),
+            cwd: "/tmp".into(),
+            available_tools: vec![],
+            home: "/home/u".into(),
+        }
+    }
+
+    #[test]
+    fn shell_path_named_shells() {
+        let mut c = dummy();
+        c.shell = "bash".into();
+        assert_eq!(c.shell_path(), "/bin/bash");
+        c.shell = "zsh".into();
+        assert_eq!(c.shell_path(), "/bin/zsh");
+        c.shell = "fish".into();
+        assert_eq!(c.shell_path(), "/usr/bin/fish");
+        c.shell = "sh".into();
+        assert_eq!(c.shell_path(), "/bin/sh");
+    }
+
+    #[test]
+    fn shell_path_absolute_passthrough() {
+        let mut c = dummy();
+        c.shell = "/opt/homebrew/bin/fish".into();
+        assert_eq!(c.shell_path(), "/opt/homebrew/bin/fish");
+    }
+}

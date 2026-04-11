@@ -28,3 +28,20 @@ pub struct AiCommandResponse {
     #[serde(default)]
     pub alternates: Vec<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::AiCommandResponse;
+
+    #[test]
+    fn ai_command_response_defaults_from_minimal_json() {
+        let j = r#"{"command":"ls","explanation":"list files"}"#;
+        let r: AiCommandResponse = serde_json::from_str(j).unwrap();
+        assert_eq!(r.command, "ls");
+        assert_eq!(r.explanation, "list files");
+        assert!(r.missing_tools.is_empty());
+        assert_eq!(r.confidence, 0.0);
+        assert!(r.teaching.is_none());
+        assert!(r.alternates.is_empty());
+    }
+}

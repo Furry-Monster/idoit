@@ -171,13 +171,14 @@ pub fn run() -> Result<()> {
     Ok(())
 }
 
+fn shell_basename_from_path(path: &str) -> String {
+    path.rsplit('/').next().unwrap_or("bash").to_string()
+}
+
 fn detect_shell() -> String {
-    std::env::var("SHELL")
-        .unwrap_or_else(|_| "/bin/bash".to_string())
-        .rsplit('/')
-        .next()
-        .unwrap_or("bash")
-        .to_string()
+    shell_basename_from_path(
+        &std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string()),
+    )
 }
 
 fn choose_history_path(shell: &str) -> Result<String> {
@@ -215,5 +216,26 @@ fn choose_history_path(shell: &str) -> Result<String> {
         if use_anyway {
             return Ok(path);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::shell_basename_from_path;
+
+    #[test]
+    fn shell_basename_from_login_paths() {
+        assert_eq!(shell_basename_from_path("/usr/bin/zsh"), "zsh");
+        assert_eq!(shell_basename_from_path("/bin/bash"), "bash");
+    }
+
+    #[test]
+    fn shell_basename_without_slash_is_whole_string() {
+        assert_eq!(shell_basename_from_path("fish"), "fish");
+    }
+
+    #[test]
+    fn shell_basename_empty_path() {
+        assert_eq!(shell_basename_from_path(""), "");
     }
 }

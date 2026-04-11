@@ -111,3 +111,59 @@ impl Args {
             .join(" ")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+    use std::ffi::OsString;
+
+    #[test]
+    fn join_prompt_joins_words() {
+        assert_eq!(
+            Args::join_prompt(&["a".into(), "b".into()]),
+            "a b"
+        );
+        assert_eq!(Args::join_prompt(&[]), "");
+    }
+
+    #[test]
+    fn join_prompt_os_lossy_utf8() {
+        assert_eq!(
+            Args::join_prompt_os(&[
+                OsString::from("x"),
+                OsString::from("y")
+            ]),
+            "x y"
+        );
+    }
+
+    #[test]
+    fn parse_init_shell() {
+        let a = Args::try_parse_from(["idoit", "init", "zsh"]).unwrap();
+        match a.command {
+            Some(Commands::Init { shell }) => assert_eq!(shell, "zsh"),
+            _ => panic!("expected Init"),
+        }
+    }
+
+    #[test]
+    fn parse_global_flags_after_subcommand() {
+        let a = Args::try_parse_from(["idoit", "fix", "--dry-run", "-y"]).unwrap();
+        assert!(a.global.dry_run);
+        assert!(a.global.yes);
+        assert!(matches!(a.command, Some(Commands::Fix)));
+    }
+
+    #[test]
+    fn parse_prompt_external_subcommand() {
+        let a = Args::try_parse_from(["idoit", "list", "files"]).unwrap();
+        match a.command {
+            Some(Commands::Prompt(parts)) => {
+                let joined = Args::join_prompt_os(&parts);
+                assert_eq!(joined, "list files");
+            }
+            _ => panic!("expected Prompt"),
+        }
+    }
+}

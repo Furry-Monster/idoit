@@ -110,3 +110,66 @@ pub fn push_run_buffer(buf: &mut Vec<SessionEntry>, entry: SessionEntry) {
         buf.drain(0..buf.len() - MAX_IDOIT_RUN_BUFFER);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{push_run_buffer, LayeredContext, SessionEntry};
+
+    fn entry(cmd: &str) -> SessionEntry {
+        SessionEntry {
+            ts: "t".into(),
+            input: cmd.into(),
+            command: cmd.into(),
+            executed: true,
+            exit_code: Some(0),
+        }
+    }
+
+    #[test]
+    fn format_block_includes_layers_when_present() {
+        let ctx = LayeredContext {
+            shell_history_file: vec!["ls".into()],
+            terminal_session: vec!["pwd".into()],
+            idoit_this_run: vec![entry("echo hi")],
+        };
+        let s = ctx.format_block();
+        assert!(s.contains("Shell history file"));
+        assert!(s.contains("- ls\n"));
+        assert!(s.contains("This terminal"));
+        assert!(s.contains("- pwd\n"));
+        assert!(s.contains("This idoit session"));
+        assert!(s.contains("echo hi"));
+    }
+
+    #[test]
+    fn format_block_empty_is_empty() {
+        let ctx = LayeredContext::default();
+        assert!(ctx.format_block().is_empty());
+    }
+
+    #[test]
+    fn format_block_shows_exit_when_executed() {
+        let ctx = LayeredContext {
+            idoit_this_run: vec![SessionEntry {
+                ts: "t".into(),
+                input: "i".into(),
+                command: "c".into(),
+                executed: true,
+                exit_code: Some(7),
+            }],
+            ..Default::default()
+        };
+        assert!(ctx.format_block().contains("exit 7"));
+    }
+
+    #[test]
+    fn push_run_buffer_drops_oldest_past_cap() {
+        let mut buf = Vec::new();
+        for i in 0..66 {
+            push_run_buffer(&mut buf, entry(&i.to_string()));
+        }
+        assert_eq!(buf.len(), 64);
+        assert_eq!(buf.first().unwrap().command, "2");
+        assert_eq!(buf.last().unwrap().command, "65");
+    }
+}

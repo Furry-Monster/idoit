@@ -60,3 +60,13 @@ pub fn confirm_with_copy(auto_yes: bool, command: &str) -> Result<CommandAction>
         _ => Ok(CommandAction::Cancel),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::confirm_execution;
+
+    #[test]
+    fn confirm_execution_auto_yes_skips_prompt() {
+        assert!(confirm_execution(true).unwrap());
+    }
+}

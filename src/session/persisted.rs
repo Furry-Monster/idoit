@@ -45,6 +45,20 @@ fn atomic_write(path: &std::path::Path, data: &HistoryFile) -> Result<()> {
     Ok(())
 }
 
+fn parse_jsonl_entries(content: &str) -> Vec<SessionEntry> {
+    let mut entries = Vec::new();
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(e) = serde_json::from_str::<SessionEntry>(line) {
+            entries.push(e);
+        }
+    }
+    entries
+}
+
 fn load_history_file() -> HistoryFile {
     let json_path = history_json_path();
     if json_path.exists() {
@@ -57,18 +71,10 @@ fn load_history_file() -> HistoryFile {
 
     let jsonl_path = history_jsonl_path();
     if jsonl_path.exists() {
-        let mut entries = Vec::new();
-        if let Ok(content) = fs::read_to_string(&jsonl_path) {
-            for line in content.lines() {
-                let line = line.trim();
-                if line.is_empty() {
-                    continue;
-                }
-                if let Ok(e) = serde_json::from_str::<SessionEntry>(line) {
-                    entries.push(e);
-                }
-            }
-        }
+        let mut entries = match fs::read_to_string(&jsonl_path) {
+            Ok(content) => parse_jsonl_entries(&content),
+            Err(_) => Vec::new(),
+        };
         if entries.len() > MAX_ENTRIES {
             entries = entries.split_off(entries.len() - MAX_ENTRIES);
         }
@@ -104,4 +110,39 @@ pub fn last_entry() -> Option<SessionEntry> {
 
 pub fn last_command_string() -> Option<String> {
     last_entry().map(|e| e.command)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_jsonl_entries, HistoryFile};
+    use crate::session::SessionEntry;
+
+    #[test]
+    fn parse_jsonl_ignores_blank_and_invalid() {
+        let raw = r#"
+
+        {"ts":"t","input":"i","command":"c","executed":true,"exit_code":null}
+        not-json
+        "#;
+        let v = parse_jsonl_entries(raw);
+        assert_eq!(v.len(), 1);
+        assert_eq!(v[0].command, "c");
+    }
+
+    #[test]
+    fn history_file_json_roundtrip() {
+        let hf = HistoryFile {
+            entries: vec![SessionEntry {
+                ts: "1".into(),
+                input: "x".into(),
+                command: "y".into(),
+                executed: false,
+                exit_code: Some(1),
+            }],
+        };
+        let json = serde_json::to_string(&hf).unwrap();
+        let back: HistoryFile = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.entries.len(), 1);
+        assert_eq!(back.entries[0].command, "y");
+    }
 }
