@@ -1,5 +1,14 @@
 use crate::shell::context::ShellContext;
 
+/// Shared JSON / command-field rules for translate, fix, and refine (claude-code-rev-style single-unit commands).
+fn strict_json_command_contract() -> &'static str {
+    r#"Strict JSON output contract:
+- Emit exactly one JSON object. No markdown fences and no prose before or after the object.
+- "command" must be one invocable unit: a single simple command or one pipeline (e.g. `find . -name '*.rs' | head`). Do not put multiple independent steps in "command" using `;`, `&&`, `||`, or line breaks; use "alternates" for additional single-unit options.
+- Each "alternates" entry must also be a single unit (same rule as "command").
+- Always include "alternates" (use an empty array [] when none)."#
+}
+
 pub fn translate_system(ctx: &ShellContext, anyway: bool) -> String {
     let tool_list = if ctx.available_tools.is_empty() {
         "unknown".to_string()
@@ -30,13 +39,19 @@ Rules:
 3. {anyway_clause}
 4. Be concise in your explanation.
 
+{contract}
+
 You MUST respond with a JSON object and nothing else:
 {{
   "command": "the shell command to run",
   "explanation": "one-sentence explanation of what this command does",
   "missing_tools": ["tool1"],
+  "alternates": [],
   "confidence": 0.95
 }}"#,
+        contract = strict_json_command_contract(),
+        anyway_clause = anyway_clause,
+        tool_list = tool_list,
         os = ctx.os,
         shell = ctx.shell,
         cwd = ctx.cwd,
@@ -83,13 +98,17 @@ Rules:
 2. Provide the corrected command.
 3. Explain what was wrong and how you fixed it.
 
+{contract}
+
 You MUST respond with a JSON object and nothing else:
 {{
   "command": "the corrected shell command",
   "explanation": "what was wrong and how this fixes it",
   "missing_tools": [],
+  "alternates": [],
   "confidence": 0.9
 }}"#,
+        contract = strict_json_command_contract(),
         os = ctx.os,
         shell = ctx.shell,
         cwd = ctx.cwd,
@@ -136,13 +155,17 @@ Rules:
 2. Apply the user's refinement to produce an updated command.
 3. Be concise in your explanation.
 
+{contract}
+
 You MUST respond with a JSON object and nothing else:
 {{
   "command": "the refined shell command",
   "explanation": "one-sentence explanation of what changed",
   "missing_tools": [],
+  "alternates": [],
   "confidence": 0.95
 }}"#,
+        contract = strict_json_command_contract(),
         os = ctx.os,
         shell = ctx.shell,
         cwd = ctx.cwd,
@@ -168,7 +191,8 @@ Additionally, include a "teaching" field in your JSON response with a concise tu
 - What the command does and when to use it
 - Key flags/options explained
 - 2-3 common variations or related commands
-Keep it brief (5-8 lines max)."#
+Keep it brief (5-8 lines max).
+If you use "alternates", each entry must still be a single invocable unit (no `;` / `&&` chains)."#
 }
 
 pub fn fix_user_message(last_command: &str, error_output: &str, exit_code: Option<i32>) -> String {
@@ -236,6 +260,13 @@ mod tests {
         let anyway_off = translate_system(&ctx(), false);
         assert!(anyway_off.contains("missing_tools"));
         assert!(!anyway_off.contains("--anyway mode"));
+    }
+
+    #[test]
+    fn translate_system_includes_strict_json_contract() {
+        let s = translate_system(&ctx(), false);
+        assert!(s.contains("Strict JSON output contract"));
+        assert!(s.contains("\"alternates\""));
     }
 
     #[test]

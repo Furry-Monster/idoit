@@ -70,13 +70,16 @@ pub async fn run(
         return Ok(());
     }
 
-    let should_confirm = if anyway && !resp.missing_tools.is_empty() {
-        confirm::confirm_anyway()?
-    } else {
-        confirm::confirm_execution(auto_yes || settings.behavior.auto_confirm)?
-    };
+    if anyway && !resp.missing_tools.is_empty() && !confirm::confirm_anyway()? {
+        session::record(user_input, &chosen, false, None);
+        return Ok(());
+    }
 
-    if !should_confirm {
+    if !confirm::confirm_shell_execution(
+        auto_yes,
+        settings.behavior.auto_confirm,
+        &chosen,
+    )? {
         session::record(user_input, &chosen, false, None);
         return Ok(());
     }

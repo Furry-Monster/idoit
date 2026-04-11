@@ -96,3 +96,11 @@ pub fn print_selected_alternate_command(cmd: &str) {
     );
     println!();
 }
+
+pub fn print_exec_safety_warning(msg: &str) {
+    println!(
+        "  {} {}",
+        style("⚠").yellow(),
+        style(msg).yellow()
+    );
+}

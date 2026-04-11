@@ -177,34 +177,51 @@ fn resolve_api_key(config_value: &str, env_var: &str) -> Result<String> {
     })
 }
 
+fn normalize_ai_command_response(mut resp: AiCommandResponse) -> Result<AiCommandResponse> {
+    resp.command = resp.command.trim().to_string();
+    resp.alternates = resp
+        .alternates
+        .into_iter()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if resp.command.is_empty() && resp.alternates.is_empty() {
+        anyhow::bail!(
+            "model returned an empty command with no alternates; try another model or rephrase"
+        );
+    }
+
+    Ok(resp)
+}
+
 fn parse_command_response(raw: &str) -> Result<AiCommandResponse> {
     let trimmed = raw.trim();
 
-    if let Ok(resp) = serde_json::from_str::<AiCommandResponse>(trimmed) {
-        return Ok(resp);
-    }
-
-    if trimmed.contains("```") {
+    let parsed = if let Ok(resp) = serde_json::from_str::<AiCommandResponse>(trimmed) {
+        Some(resp)
+    } else if trimmed.contains("```") {
         let inner = trimmed
             .trim_start_matches("```json")
             .trim_start_matches("```")
             .trim_end_matches("```")
             .trim();
-        if let Ok(resp) = serde_json::from_str::<AiCommandResponse>(inner) {
-            return Ok(resp);
-        }
-    }
+        serde_json::from_str::<AiCommandResponse>(inner).ok()
+    } else if let (Some(start), Some(end)) = (trimmed.find('{'), trimmed.rfind('}')) {
+        let candidate = &trimmed[start..=end];
+        serde_json::from_str::<AiCommandResponse>(candidate).ok()
+    } else {
+        None
+    };
 
-    if let Some(start) = trimmed.find('{') {
-        if let Some(end) = trimmed.rfind('}') {
-            let candidate = &trimmed[start..=end];
-            if let Ok(resp) = serde_json::from_str::<AiCommandResponse>(candidate) {
-                return Ok(resp);
-            }
-        }
+    match parsed {
+        Some(resp) => normalize_ai_command_response(resp).with_context(|| {
+            format!("after parsing JSON from the model.\nRaw response:\n{raw}")
+        }),
+        None => anyhow::bail!(
+            "AI returned unexpected response (not valid JSON).\nTip: try a different model or provider with -p.\n\nRaw response:\n{raw}"
+        ),
     }
-
-    anyhow::bail!("AI returned unexpected response (not valid JSON).\nTip: try a different model or provider with -p.\n\nRaw response:\n{raw}")
 }
 
 #[cfg(test)]
@@ -263,5 +280,19 @@ mod tests {
         let resp = parse_command_response(raw).unwrap();
         assert_eq!(resp.alternates.len(), 1);
         assert_eq!(resp.alternates[0], "grep -r foo .");
+    }
+
+    #[test]
+    fn test_parse_allows_whitespace_only_command_when_alternates_present() {
+        let raw = r#"{"command":"   ","explanation":"e","missing_tools":[],"alternates":["ls"]}"#;
+        let resp = parse_command_response(raw).unwrap();
+        assert!(resp.command.is_empty());
+        assert_eq!(resp.alternates, vec!["ls".to_string()]);
+    }
+
+    #[test]
+    fn test_parse_rejects_empty_command_and_no_alternates() {
+        let raw = r#"{"command":"","explanation":"e","missing_tools":[]}"#;
+        assert!(parse_command_response(raw).is_err());
     }
 }

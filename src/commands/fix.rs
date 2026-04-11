@@ -66,7 +66,11 @@ pub async fn run(
         return Ok(());
     }
 
-    if !confirm::confirm_execution(auto_yes || settings.behavior.auto_confirm)? {
+    if !confirm::confirm_shell_execution(
+        auto_yes,
+        settings.behavior.auto_confirm,
+        &chosen,
+    )? {
         return Ok(());
     }
 

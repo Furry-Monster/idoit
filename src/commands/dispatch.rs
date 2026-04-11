@@ -18,7 +18,7 @@ use crate::tui;
 use super::{explain, fix, refine, setup, translate};
 
 /// Re-run the last generated command from session history (subcommand: `last`).
-pub async fn run_last(settings: &Settings) -> Result<()> {
+pub async fn run_last(settings: &Settings, auto_yes: bool) -> Result<()> {
     let cmd = session::last_command_string()
         .ok_or_else(|| anyhow::anyhow!("no previous idoit command found in session history"))?;
 
@@ -28,7 +28,11 @@ pub async fn run_last(settings: &Settings) -> Result<()> {
 
     let ctx = ShellContext::detect(&settings.behavior.shell);
 
-    if !cli::confirm::confirm_execution(settings.behavior.auto_confirm)? {
+    if !cli::confirm::confirm_shell_execution(
+        auto_yes,
+        settings.behavior.auto_confirm,
+        &cmd,
+    )? {
         return Ok(());
     }
 
@@ -76,7 +80,7 @@ pub async fn run(args: Args) -> Result<()> {
         }
         Some(Commands::Init { .. }) | Some(Commands::Setup) => unreachable!("handled above"),
         Some(Commands::Config) => config::show_config(&settings),
-        Some(Commands::Last) => run_last(&settings).await,
+        Some(Commands::Last) => run_last(&settings, g.yes).await,
         Some(Commands::Macro { name, body }) => {
             let text = Args::join_prompt(&body);
             if text.is_empty() {

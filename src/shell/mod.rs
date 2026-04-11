@@ -1,3 +1,4 @@
+pub mod command_safety;
 pub mod context;
 pub mod executor;
 pub mod history;
